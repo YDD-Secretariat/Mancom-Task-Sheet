@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MANCOM · Strategic Agenda</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+        body { background: #f4f6fa; padding: 2rem 1rem; }
+        .container { max-width: 1400px; margin: 0 auto; background: white; border-radius: 28px; box-shadow: 0 20px 40px rgba(0,0,0,0.08); padding: 1.8rem 2rem 2.5rem; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; }
+        .header h1 { font-size: 1.8rem; font-weight: 700; color: #0b1a2f; }
+        .header h1 i { color: #1a6b4a; margin-right: 0.8rem; }
+        
+        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; background: #eef0f5; padding: 0.6rem 1.5rem; border-radius: 40px; color: #1b2a4a; text-decoration: none; font-weight: 500; transition: 0.2s; border: 1px solid #d9dfe8; }
+        .nav-link:hover { background: #1b2a4a; color: white; border-color: #1b2a4a; }
+        
+        .badge { background: #e2e7f0; padding: 0.2rem 1rem; border-radius: 40px; font-size: 0.85rem; color: #1e2b41; }
+        
+        .table-wrap { overflow-x: auto; border-radius: 16px; border: 1px solid #e6ebf2; background: #fafcff; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; min-width: 780px; }
+        th { background: #f0f3fa; text-align: left; padding: 0.9rem 1rem; font-weight: 600; color: #1d2b44; border-bottom: 1px solid #dce3ed; }
+        td { padding: 0.8rem 1rem; border-bottom: 1px solid #eef2f8; vertical-align: middle; color: #1f2c41; }
+        tr:last-child td { border-bottom: none; }
+        
+        .status-badge { display: inline-block; padding: 0.2rem 1rem; border-radius: 30px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+        .status-open { background: #e3edff; color: #0047ab; }
+        .status-closed { background: #d7f0df; color: #0b6e3f; }
+        .status-wip { background: #fff0d9; color: #a8681a; }
+        .status-overdue { background: #ffe8e8; color: #b13a3a; }
+        
+        .unit-tag { background: #e8edf6; border-radius: 30px; padding: 0.2rem 0.9rem; font-size: 0.75rem; font-weight: 600; color: #1a2e4a; display: inline-block; }
+        .dept-header th { background: #e2eaf5; font-size: 0.85rem; color: #0a1a33; padding: 0.6rem 1rem; }
+        
+        .loading { text-align: center; padding: 3rem; color: #6e7b92; }
+        .loading i { font-size: 2rem; margin-bottom: 1rem; display: block; }
+        
+        .footer { margin-top: 1.5rem; font-size: 0.85rem; color: #52637a; text-align: right; border-top: 1px solid #e3e9f2; padding-top: 1rem; }
+        
+        @media (max-width: 700px) { .container { padding: 1rem; } .header { flex-direction: column; align-items: stretch; } }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1><i class="fas fa-chess-queen"></i> Strategic Agenda</h1>
+        <div style="display: flex; gap: 0.8rem; align-items: center; flex-wrap: wrap;">
+            <span class="badge"><i class="fas fa-layer-group"></i> By Department</span>
+            <a href="index.html" class="nav-link"><i class="fas fa-arrow-left"></i> Back to Tasks</a>
+        </div>
+    </div>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Strategic Initiative</th>
+                    <th>Department</th>
+                    <th>Timeline</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Remarks</th>
+                </tr>
+            </thead>
+            <tbody id="strategyBody">
+                <tr><td colspan="6" class="loading"><i class="fas fa-spinner fa-pulse"></i> Loading strategy data...</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="footer"><i class="fas fa-sync-alt fa-fw"></i> Last updated: <span id="updateTime">—</span></div>
+</div>
+
+<script>
+    // REPLACE THIS URL WITH YOUR NEW APPSCRIPT DEPLOYMENT URL
+    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbytS8yzg1hRdGi5YhXLe0DKGi7SJlfOFjE_tETmAN6wq6d2b29yqd4eb1FZomli1dIgew/exec';
+    
+    const strategyBody = document.getElementById('strategyBody');
+    const updateTime = document.getElementById('updateTime');
+
+    async function loadStrategyData() {
+        try {
+            const response = await fetch(APPSCRIPT_URL);
+            if (!response.ok) throw new Error('Network response was not ok');
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            if (!data || data.length === 0) {
+                strategyBody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:2rem;color:#6e7b92;">No strategic initiatives found. Add data to the "Strategy" sheet.</td></tr>`;
+                return;
+            }
+            
+            renderStrategyTable(data);
+            updateTime.textContent = new Date().toLocaleTimeString();
+            
+        } catch (error) {
+            console.error('Error loading strategy data:', error);
+            strategyBody.innerHTML = `
+                <tr><td colspan="6" style="text-align:center;padding:2rem;color:#b13a3a;">
+                    <i class="fas fa-exclamation-triangle"></i> Failed to load strategy data: ${error.message}
+                    <br><small style="color:#6e7b92;">Check that the Strategy sheet exists and the AppScript URL is correct.</small>
+                </td></tr>`;
+        }
+    }
+
+    function renderStrategyTable(data) {
+        // Group by department
+        const groups = {};
+        data.forEach(row => {
+            const dept = row['Department'] || row['Unit'] || 'General';
+            if (!groups[dept]) groups[dept] = [];
+            groups[dept].push(row);
+        });
+
+        let html = '';
+        const sortedDepts = Object.keys(groups).sort();
+        
+        sortedDepts.forEach(dept => {
+            const items = groups[dept];
+            // Department header
+            html += `<tr class="dept-header"><th colspan="6" style="background:#e8eff9;padding:0.5rem 1rem;">
+                <i class="fas fa-chevron-right" style="color:#2a4a7a;"></i> ${dept}  <span style="font-weight:400;font-size:0.75rem;color:#3a5a7a;">(${items.length} items)</span>
+            </th></tr>`;
+            
+            items.forEach(row => {
+                const item = row['Strategic Item'] || row['Initiative'] || row['item'] || '—';
+                const timeline = row['Timeline'] || row['Due Date'] || '—';
+                const priority = row['Priority'] || 'Medium';
+                let status = row['Status'] || 'Open';
+                const remark = row['Remarks'] || row['Remark'] || '';
+                
+                let statusClass = 'status-open';
+                if (status.toLowerCase().includes('closed')) statusClass = 'status-closed';
+                else if (status.toLowerCase().includes('wip') || status.toLowerCase().includes('progress')) statusClass = 'status-wip';
+                else if (status.toLowerCase().includes('overdue')) statusClass = 'status-overdue';
+                
+                html += `<tr>
+                    <td><strong>${item}</strong></td>
+                    <td><span class="unit-tag">${dept}</span></td>
+                    <td>${timeline}</td>
+                    <td><span style="background:#eef3fa;padding:0.1rem 0.7rem;border-radius:30px;font-size:0.75rem;font-weight:500;">${priority}</span></td>
+                    <td><span class="status-badge ${statusClass}">${status}</span></td>
+                    <td style="font-size:0.85rem;color:#4a5a72;">${remark}</td>
+                </tr>`;
+            });
+        });
+        
+        strategyBody.innerHTML = html;
+    }
+
+    // Load data when page loads
+    loadStrategyData();
+</script>
+</body>
+</html>
