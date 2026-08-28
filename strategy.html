@@ -1,159 +1,435 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MANCOM · Strategic Agenda</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
-        body { background: #f4f6fa; padding: 2rem 1rem; }
-        .container { max-width: 1400px; margin: 0 auto; background: white; border-radius: 28px; box-shadow: 0 20px 40px rgba(0,0,0,0.08); padding: 1.8rem 2rem 2.5rem; }
-        
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; }
-        .header h1 { font-size: 1.8rem; font-weight: 700; color: #0b1a2f; }
-        .header h1 i { color: #1a6b4a; margin-right: 0.8rem; }
-        
-        .nav-link { display: inline-flex; align-items: center; gap: 0.5rem; background: #eef0f5; padding: 0.6rem 1.5rem; border-radius: 40px; color: #1b2a4a; text-decoration: none; font-weight: 500; transition: 0.2s; border: 1px solid #d9dfe8; }
-        .nav-link:hover { background: #1b2a4a; color: white; border-color: #1b2a4a; }
-        
-        .badge { background: #e2e7f0; padding: 0.2rem 1rem; border-radius: 40px; font-size: 0.85rem; color: #1e2b41; }
-        
-        .table-wrap { overflow-x: auto; border-radius: 16px; border: 1px solid #e6ebf2; background: #fafcff; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; min-width: 780px; }
-        th { background: #f0f3fa; text-align: left; padding: 0.9rem 1rem; font-weight: 600; color: #1d2b44; border-bottom: 1px solid #dce3ed; }
-        td { padding: 0.8rem 1rem; border-bottom: 1px solid #eef2f8; vertical-align: middle; color: #1f2c41; }
-        tr:last-child td { border-bottom: none; }
-        
-        .status-badge { display: inline-block; padding: 0.2rem 1rem; border-radius: 30px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
-        .status-open { background: #e3edff; color: #0047ab; }
-        .status-closed { background: #d7f0df; color: #0b6e3f; }
-        .status-wip { background: #fff0d9; color: #a8681a; }
-        .status-overdue { background: #ffe8e8; color: #b13a3a; }
-        
-        .unit-tag { background: #e8edf6; border-radius: 30px; padding: 0.2rem 0.9rem; font-size: 0.75rem; font-weight: 600; color: #1a2e4a; display: inline-block; }
-        .dept-header th { background: #e2eaf5; font-size: 0.85rem; color: #0a1a33; padding: 0.6rem 1rem; }
-        
-        .loading { text-align: center; padding: 3rem; color: #6e7b92; }
-        .loading i { font-size: 2rem; margin-bottom: 1rem; display: block; }
-        
-        .footer { margin-top: 1.5rem; font-size: 0.85rem; color: #52637a; text-align: right; border-top: 1px solid #e3e9f2; padding-top: 1rem; }
-        
-        @media (max-width: 700px) { .container { padding: 1rem; } .header { flex-direction: column; align-items: stretch; } }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MANCOM Strategic Agenda — Grouped by Department</title>
+<style>
+  :root { --ink:#10211F; --sub:#5B6B68; --teal:#0E7C6B; --deep:#0A5A4E;
+          --tint:#E4F1EE; --mist:#F1F5F4; --line:#E2EAE8; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:"Avenir Next","Segoe UI","Helvetica Neue",system-ui,Arial,sans-serif;
+         background:#EDF1F0; color:var(--ink); }
+
+  /* topbar */
+  .topbar { position:sticky; top:0; z-index:9; background:#fff;
+    border-bottom:1px solid var(--line); padding:14px 26px;
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    box-shadow:0 4px 18px rgba(16,33,31,.06); }
+  .logo { width:42px; height:42px; border-radius:12px; background:var(--deep);
+    color:#fff; display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:13px; letter-spacing:1px; }
+  .tb-text b { display:block; font-size:15px; }
+  .tb-text span { font-size:11px; color:var(--sub); letter-spacing:1.4px; text-transform:uppercase; }
+  .pill { font-size:10px; font-weight:800; letter-spacing:1.4px; padding:5px 10px;
+    border-radius:999px; background:#EDF1F0; color:var(--sub); }
+  .pill.ok { background:#E4F1EE; color:#0A5A4E; }
+  .pill.warnpill { background:#F7F0DB; color:#8A6D1F; }
+  #status { flex:1; text-align:center; font-size:12.5px; color:var(--sub); min-width:200px; }
+  #status.err { color:#C6403C; font-weight:600; }
+  .navlink { font-size:12.5px; font-weight:800; color:var(--deep); text-decoration:none;
+    padding:9px 14px; border:2px solid var(--deep); border-radius:12px; letter-spacing:.3px; }
+  .navlink:hover { background:var(--tint); }
+  button.tb { border:none; border-radius:12px; padding:10px 16px; font-size:12.5px;
+    font-weight:800; color:#fff; background:var(--deep); cursor:pointer; letter-spacing:.4px; }
+  button.tb:hover { background:var(--teal); }
+
+  #warn { display:none; max-width:1080px; margin:16px auto -6px; padding:12px 18px;
+    background:#F7F0DB; color:#7A5F16; border-radius:12px; font-size:12.5px; line-height:1.5; }
+
+  /* page heading */
+  .page-head { max-width:1080px; margin:34px auto 6px; padding:0 20px; }
+  .page-head .eyebrow { font-size:11px; letter-spacing:2.6px; text-transform:uppercase;
+    color:var(--teal); font-weight:700; }
+  .page-head h1 { font-size:38px; font-weight:800; letter-spacing:-1px; margin:6px 0 4px; }
+  .page-head p { color:var(--sub); font-size:13.5px; }
+
+  /* summary KPIs */
+  #summary { max-width:1080px; margin:22px auto; padding:0 20px;
+    display:grid; grid-template-columns:repeat(5,1fr); gap:12px; }
+  .kpi { background:#fff; border:1px solid var(--line); border-radius:14px;
+    padding:16px 16px; box-shadow:0 6px 18px rgba(16,33,31,.06); }
+  .kpi b { font-size:26px; font-weight:800; display:block; letter-spacing:-.5px; }
+  .kpi span { font-size:10.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--sub); }
+
+  /* department sections */
+  #wrap { max-width:1080px; margin:10px auto 70px; padding:0 20px; display:flex; flex-direction:column; gap:22px; }
+  .dept { background:#fff; border:1px solid var(--line); border-radius:18px; overflow:hidden;
+    border-top:5px solid var(--teal); box-shadow:0 12px 30px rgba(16,33,31,.08); }
+  .dept-head { padding:18px 22px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
+  .dept-title { display:flex; align-items:center; gap:10px; }
+  .dept-title .dot { width:12px; height:12px; border-radius:50%; flex:none; }
+  .dept-title h3 { font-size:19px; font-weight:800; letter-spacing:-.2px; }
+  .dept-meta { display:flex; gap:8px; flex-wrap:wrap; }
+  .chip { font-size:11px; font-weight:800; letter-spacing:.5px; color:#fff; padding:6px 12px; border-radius:999px; }
+  .chip.warn { background:#FBE8E8; color:#8E2B2B; }
+  .chip.ghost { background:#fff; border:1.5px solid; }
+  .pbar { height:6px; background:#EDF1F0; }
+  .pbar-fill { height:100%; }
+  .items { padding:16px 20px 20px; display:flex; flex-direction:column; gap:10px; }
+
+  .item { display:flex; background:var(--mist); border:1px solid var(--line); border-radius:14px; overflow:hidden; }
+  .item-strip { width:5px; background:var(--pc); flex:none; }
+  .item-body { padding:12px 16px 11px; flex:1; }
+  .item-top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:4px; }
+  .item h4 { font-size:14px; font-weight:700; line-height:1.35; }
+  .badge { font-size:9.5px; font-weight:800; letter-spacing:1px; padding:4px 9px; border-radius:999px; white-space:nowrap; }
+  .remark { font-size:12px; color:var(--sub); margin-top:3px; }
+  .item-foot { display:flex; align-items:center; gap:16px; margin-top:8px; flex-wrap:wrap; }
+  .tl { display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:700; color:var(--deep); }
+  .pri { display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--sub); font-weight:600; }
+  .pri i { width:8px; height:8px; border-radius:50%; display:inline-block; }
+  .quiet { color:var(--sub); }
+
+  @media (max-width:760px) {
+    #summary { grid-template-columns:repeat(2,1fr); }
+    .page-head h1 { font-size:28px; }
+  }
+  @media print {
+    .topbar, #warn, .navlink { display:none; }
+    body { background:#fff; }
+    .dept { box-shadow:none; break-inside:avoid; }
+  }
+</style>
 </head>
 <body>
-<div class="container">
-    <div class="header">
-        <h1><i class="fas fa-chess-queen"></i> Strategic Agenda</h1>
-        <div style="display: flex; gap: 0.8rem; align-items: center; flex-wrap: wrap;">
-            <span class="badge"><i class="fas fa-layer-group"></i> By Department</span>
-            <a href="index.html" class="nav-link"><i class="fas fa-arrow-left"></i> Back to Tasks</a>
-        </div>
-    </div>
+  <div class="topbar">
+    <div class="logo">YDD</div>
+    <div class="tb-text"><b>MANCOM Strategic Agenda</b><span>Live from Google Sheets</span></div>
+    <span id="live" class="pill">…</span>
+    <div id="status">Loading…</div>
+    <a class="navlink" href="index.html">← Task View</a>
+    <button class="tb" id="refresh">⟳ Refresh</button>
+  </div>
 
-    <div class="table-wrap">
-        <table>
-            <thead>
-                <tr>
-                    <th>Strategic Initiative</th>
-                    <th>Department</th>
-                    <th>Timeline</th>
-                    <th>Priority</th>
-                    <th>Status</th>
-                    <th>Remarks</th>
-                </tr>
-            </thead>
-            <tbody id="strategyBody">
-                <tr><td colspan="6" class="loading"><i class="fas fa-spinner fa-pulse"></i> Loading strategy data...</td></tr>
-            </tbody>
-        </table>
-    </div>
-    <div class="footer"><i class="fas fa-sync-alt fa-fw"></i> Last updated: <span id="updateTime">—</span></div>
-</div>
+  <div class="page-head">
+    <div class="eyebrow">Strategic Planning</div>
+    <h1>Strategic Agenda</h1>
+    <p>Grouped by department · pulled live from the "Strategy" sheet</p>
+  </div>
 
-<script>
-    // REPLACE THIS URL WITH YOUR NEW APPSCRIPT DEPLOYMENT URL
-    const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbytS8yzg1hRdGi5YhXLe0DKGi7SJlfOFjE_tETmAN6wq6d2b29yqd4eb1FZomli1dIgew/exec';
-    
-    const strategyBody = document.getElementById('strategyBody');
-    const updateTime = document.getElementById('updateTime');
+  <div id="warn"></div>
+  <div id="summary"></div>
+  <div id="wrap"></div>
 
-    async function loadStrategyData() {
-        try {
-            const response = await fetch(APPSCRIPT_URL);
-            if (!response.ok) throw new Error('Network response was not ok');
-            const data = await response.json();
-            
-            if (data.error) {
-                throw new Error(data.error);
-            }
-            
-            if (!data || data.length === 0) {
-                strategyBody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:2rem;color:#6e7b92;">No strategic initiatives found. Add data to the "Strategy" sheet.</td></tr>`;
-                return;
-            }
-            
-            renderStrategyTable(data);
-            updateTime.textContent = new Date().toLocaleTimeString();
-            
-        } catch (error) {
-            console.error('Error loading strategy data:', error);
-            strategyBody.innerHTML = `
-                <tr><td colspan="6" style="text-align:center;padding:2rem;color:#b13a3a;">
-                    <i class="fas fa-exclamation-triangle"></i> Failed to load strategy data: ${error.message}
-                    <br><small style="color:#6e7b92;">Check that the Strategy sheet exists and the AppScript URL is correct.</small>
-                </td></tr>`;
-        }
+  <script>/* MANCOM Strategic Agenda — grouped-by-department live view.
+   Reads the same Apps Script feed as the Task view, but from the "Strategy" sheet. */
+(function () {
+  'use strict';
+
+  /* ================================================================
+     1. CONFIG — paste the SAME /exec URL used in index.html
+     ================================================================ */
+  var CONFIG = {
+    API_URL: 'https://script.google.com/macros/s/AKfycbytS8yzg1hRdGi5YhXLe0DKGi7SJlfOFjE_tETmAN6wq6d2b29yqd4eb1FZomli1dIgew/exec',
+    REFRESH_MINUTES: 5,
+
+    // Canonical department list + display order. Matching is fuzzy (case/parenthesis
+    // insensitive, so "C&E" in the sheet matches "Care & Empowerment (C&E)" here).
+    DEPARTMENTS: [
+      { key: 'outreach',    label: 'Outreach Unit',                         aliases: ['outreach', 'outreach unit'] },
+      { key: 'ce',          label: 'Care & Empowerment (C&E)',              aliases: ['c&e', 'ce', 'care & empowerment', 'care and empowerment'] },
+      { key: 'technology',  label: 'Technology',                            aliases: ['technology', 'tech'] },
+      { key: 'secretariat', label: 'Secretariat',                           aliases: ['secretariat'] },
+      { key: 'sp',          label: 'Strategy & Planning (S&P)',             aliases: ['s&p', 'sp', 'strategy & planning', 'strategy and planning'] },
+      { key: 'aog',         label: 'Anthony Operations Group (AOG)',        aliases: ['aog', 'anthony operations group'] },
+      { key: 'wyl',         label: 'WECA Youth Leader (WYL)',               aliases: ['wyl', 'weca youth leader'] },
+      { key: 'leadership',  label: 'Leadership',                            aliases: ['leadership'] },
+      { key: 'crossteam',   label: 'Cross-Team (All)',                      aliases: ['cross-team', 'cross team', 'all', 'cross-team (all)'] }
+    ],
+
+    // theme keys: rose plum magenta teal azure indigo violet emerald amber crimson slate rust cyan
+    DEPT_THEME: {
+      outreach: 'rose', ce: 'emerald', technology: 'azure', secretariat: 'amber',
+      sp: 'indigo', aog: 'rust', wyl: 'violet', leadership: 'crimson', crossteam: 'slate'
     }
+  };
 
-    function renderStrategyTable(data) {
-        // Group by department
-        const groups = {};
-        data.forEach(row => {
-            const dept = row['Department'] || row['Unit'] || 'General';
-            if (!groups[dept]) groups[dept] = [];
-            groups[dept].push(row);
-        });
+  var THEMES = {
+    rose:    { deep: '#9D2B5E', main: '#C7407C', tint: '#FCE7F0', mist: '#FBF2F6', alt: '#F7E4EE' },
+    plum:    { deep: '#6D2B63', main: '#94408A', tint: '#F7E7F4', mist: '#FAF2F8', alt: '#F3E2F0' },
+    magenta: { deep: '#8E2F5A', main: '#B84A7E', tint: '#FBE8F1', mist: '#FBF3F7', alt: '#F6E3EE' },
+    teal:    { deep: '#0A5A4E', main: '#0E7C6B', tint: '#E4F1EE', mist: '#F1F5F4', alt: '#E8F0EE' },
+    azure:   { deep: '#12557F', main: '#1B7BB5', tint: '#E3F0F8', mist: '#F0F5F9', alt: '#E1EEF7' },
+    indigo:  { deep: '#33408C', main: '#4A5BC0', tint: '#E9EBF9', mist: '#F3F4FB', alt: '#E5E8F6' },
+    violet:  { deep: '#5B3A8E', main: '#7A52B8', tint: '#EFE8F9', mist: '#F5F2FB', alt: '#EBE3F6' },
+    emerald: { deep: '#1E6B41', main: '#2E9159', tint: '#E4F2E9', mist: '#F1F6F2', alt: '#E6F1EA' },
+    amber:   { deep: '#8A5A11', main: '#B57E17', tint: '#FBF0DB', mist: '#F9F5EB', alt: '#F7EED8' },
+    crimson: { deep: '#8E2B2B', main: '#B84141', tint: '#FBE8E8', mist: '#F9F2F2', alt: '#F7E3E3' },
+    slate:   { deep: '#2E4756', main: '#456273', tint: '#E7EEF2', mist: '#F1F4F6', alt: '#E4EDF1' },
+    rust:    { deep: '#8C4212', main: '#B65E22', tint: '#FBEBDF', mist: '#F9F3EC', alt: '#F7E7D9' },
+    cyan:    { deep: '#0B5B66', main: '#127C8B', tint: '#E0F1F3', mist: '#EFF6F7', alt: '#DEEFF1' }
+  };
+  var PRI_COLOR = { critical: '#C6403C', high: '#D97E0F', medium: '#C9A227', low: '#35915F' };
+  var PRI_RANK = { critical: 0, high: 1, medium: 2, low: 3 };
+  var BADGE = {
+    'OPEN': ['#0E7C6B', '#E4F1EE'], 'IN PROGRESS': ['#1D6FA5', '#E5F0F8'],
+    'WAITING': ['#8A6D1F', '#F7F0DB'], 'CLOSED': ['#35915F', '#E6F3EB'],
+    'BLOCKED': ['#C6403C', '#FAE8E7'], 'NOTED': ['#5B6B68', '#EDF1F0']
+  };
+  var MON3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-        let html = '';
-        const sortedDepts = Object.keys(groups).sort();
-        
-        sortedDepts.forEach(dept => {
-            const items = groups[dept];
-            // Department header
-            html += `<tr class="dept-header"><th colspan="6" style="background:#e8eff9;padding:0.5rem 1rem;">
-                <i class="fas fa-chevron-right" style="color:#2a4a7a;"></i> ${dept}  <span style="font-weight:400;font-size:0.75rem;color:#3a5a7a;">(${items.length} items)</span>
-            </th></tr>`;
-            
-            items.forEach(row => {
-                const item = row['Strategic Item'] || row['Initiative'] || row['item'] || '—';
-                const timeline = row['Timeline'] || row['Due Date'] || '—';
-                const priority = row['Priority'] || 'Medium';
-                let status = row['Status'] || 'Open';
-                const remark = row['Remarks'] || row['Remark'] || '';
-                
-                let statusClass = 'status-open';
-                if (status.toLowerCase().includes('closed')) statusClass = 'status-closed';
-                else if (status.toLowerCase().includes('wip') || status.toLowerCase().includes('progress')) statusClass = 'status-wip';
-                else if (status.toLowerCase().includes('overdue')) statusClass = 'status-overdue';
-                
-                html += `<tr>
-                    <td><strong>${item}</strong></td>
-                    <td><span class="unit-tag">${dept}</span></td>
-                    <td>${timeline}</td>
-                    <td><span style="background:#eef3fa;padding:0.1rem 0.7rem;border-radius:30px;font-size:0.75rem;font-weight:500;">${priority}</span></td>
-                    <td><span class="status-badge ${statusClass}">${status}</span></td>
-                    <td style="font-size:0.85rem;color:#4a5a72;">${remark}</td>
-                </tr>`;
-            });
-        });
-        
-        strategyBody.innerHTML = html;
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function norm(s) { return String(s || '').toLowerCase().replace(/[().]/g, '').replace(/\s+/g, ' ').trim(); }
+
+  /* ================================================================
+     2. Parse the Strategy sheet
+     ================================================================ */
+  function findHeaderRow(rows) {
+    for (var r = 0; r < Math.min(rows.length, 10); r++) {
+      var joined = (rows[r] || []).map(function (c) { return norm(c); });
+      if (joined.indexOf('strategic item') >= 0 || joined.indexOf('item') >= 0) return r;
     }
+    return -1;
+  }
 
-    // Load data when page loads
-    loadStrategyData();
+  function mapColumns(headerRow) {
+    var cols = { item: 0, dept: 1, timeline: 2, priority: 3, status: 4, remarks: 5 };
+    headerRow.forEach(function (h, i) {
+      var n = norm(h);
+      if (n === 'strategic item' || n === 'item') cols.item = i;
+      else if (n.indexOf('department') === 0 || n === 'dept') cols.dept = i;
+      else if (n.indexOf('timeline') === 0 || n.indexOf('due') === 0 || n === 'date') cols.timeline = i;
+      else if (n.indexOf('priority') === 0) cols.priority = i;
+      else if (n.indexOf('status') === 0) cols.status = i;
+      else if (n.indexOf('remark') === 0 || n.indexOf('note') === 0) cols.remarks = i;
+    });
+    return cols;
+  }
+
+  function matchDept(raw) {
+    var low = norm(raw);
+    if (!low) return null;
+    for (var i = 0; i < CONFIG.DEPARTMENTS.length; i++) {
+      var d = CONFIG.DEPARTMENTS[i];
+      for (var j = 0; j < d.aliases.length; j++) {
+        var a = norm(d.aliases[j]);
+        if (low === a || low.indexOf(a) >= 0 || a.indexOf(low) >= 0) return d;
+      }
+    }
+    return null;
+  }
+
+  function parseTimeline(raw) {
+    var s = String(raw == null ? '' : raw).trim();
+    if (!s) return { label: 'TBD', ts: null };
+    var iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+    if (iso) {
+      var d = new Date(Date.UTC(+iso[1], +iso[2] - 1, +iso[3]));
+      return { label: d.getUTCDate() + ' ' + MON3[d.getUTCMonth()] + ' ' + d.getUTCFullYear(), ts: +d };
+    }
+    return { label: s, ts: null }; // e.g. "Q4 2025"
+  }
+
+  function parsePriority(raw) {
+    var s = norm(raw);
+    if (s.indexOf('crit') >= 0) return 'critical';
+    if (s.indexOf('high') >= 0) return 'high';
+    if (s.indexOf('low') >= 0) return 'low';
+    return 'medium';
+  }
+
+  function parseStatus(raw) {
+    var s = norm(raw);
+    if (s === 'closed' || s === 'done' || s === 'complete' || s === 'completed') return 'CLOSED';
+    if (s.indexOf('progress') >= 0) return 'IN PROGRESS';
+    if (s.indexOf('wait') >= 0 || s.indexOf('pending') >= 0) return 'WAITING';
+    if (s.indexOf('block') >= 0) return 'BLOCKED';
+    if (s === 'noted' || s === 'info') return 'NOTED';
+    return 'OPEN';
+  }
+
+  function parseStrategy(rows) {
+    var items = [], unmatched = {};
+    if (!rows || !rows.length) return { items: items, unmatched: [] };
+    var hIdx = findHeaderRow(rows);
+    if (hIdx < 0) return { items: items, unmatched: [] };
+    var cols = mapColumns(rows[hIdx]);
+    for (var r = hIdx + 1; r < rows.length; r++) {
+      var row = rows[r] || [];
+      var itemTxt = String(row[cols.item] || '').trim();
+      if (!itemTxt) continue;
+      var deptRaw = String(row[cols.dept] || '').trim();
+      var dept = matchDept(deptRaw);
+      if (!dept) {
+        if (deptRaw) unmatched[deptRaw] = (unmatched[deptRaw] || 0) + 1;
+        dept = { key: 'other', label: 'Other / Unassigned', aliases: [] };
+      }
+      var tl = parseTimeline(row[cols.timeline]);
+      items.push({
+        item: itemTxt,
+        deptKey: dept.key, deptLabel: dept.label,
+        timeline: tl.label, timelineTs: tl.ts,
+        priority: parsePriority(row[cols.priority]),
+        status: parseStatus(row[cols.status]),
+        remarks: String(row[cols.remarks] || '').trim()
+      });
+    }
+    return { items: items, unmatched: Object.keys(unmatched) };
+  }
+
+  function groupByDept(items) {
+    var order = CONFIG.DEPARTMENTS.map(function (d) { return d.key; }).concat(['other']);
+    var byKey = {};
+    items.forEach(function (it) {
+      (byKey[it.deptKey] = byKey[it.deptKey] || { key: it.deptKey, label: it.deptLabel, items: [] }).items.push(it);
+    });
+    return order.filter(function (k) { return byKey[k]; }).map(function (k) { return byKey[k]; });
+  }
+
+  /* ================================================================
+     3. Render
+     ================================================================ */
+  function themeFor(key) {
+    return THEMES[CONFIG.DEPT_THEME[key]] || THEMES.slate;
+  }
+
+  function itemRow(it, theme) {
+    var pc = PRI_COLOR[it.priority];
+    var b = BADGE[it.status] || BADGE['OPEN'];
+    var remarks = it.remarks ? '<p class="remark">' + esc(it.remarks) + '</p>' : '';
+    return '<div class="item" style="--pc:' + pc + '">' +
+      '<div class="item-strip"></div>' +
+      '<div class="item-body">' +
+        '<div class="item-top">' +
+          '<h4>' + esc(it.item) + '</h4>' +
+          '<span class="badge" style="color:' + b[0] + ';background:' + b[1] + '">' + esc(it.status) + '</span>' +
+        '</div>' +
+        remarks +
+        '<div class="item-foot">' +
+          '<span class="tl"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>' + esc(it.timeline) + '</span>' +
+          '<span class="pri"><i style="background:' + pc + '"></i>' + it.priority.charAt(0).toUpperCase() + it.priority.slice(1) + '</span>' +
+        '</div>' +
+      '</div></div>';
+  }
+
+  function deptCard(group) {
+    var theme = themeFor(group.key);
+    var total = group.items.length;
+    var closed = group.items.filter(function (i) { return i.status === 'CLOSED'; }).length;
+    var high = group.items.filter(function (i) { return i.priority === 'high' || i.priority === 'critical'; }).length;
+    var pct = total ? Math.round(100 * closed / total) : 0;
+    var sorted = group.items.slice().sort(function (a, b) {
+      var pr = PRI_RANK[a.priority] - PRI_RANK[b.priority]; if (pr) return pr;
+      var ta = a.timelineTs || Infinity, tb = b.timelineTs || Infinity;
+      return ta - tb;
+    });
+    return '<section class="dept" style="border-top-color:' + theme.main + '">' +
+      '<header class="dept-head" style="background:' + theme.tint + '">' +
+        '<div class="dept-title"><i class="dot" style="background:' + theme.main + '"></i><h3>' + esc(group.label) + '</h3></div>' +
+        '<div class="dept-meta">' +
+          '<span class="chip" style="background:' + theme.deep + '">' + total + ' item' + (total !== 1 ? 's' : '') + '</span>' +
+          (high ? '<span class="chip warn">' + high + ' high/critical</span>' : '') +
+          '<span class="chip ghost" style="color:' + theme.deep + ';border-color:' + theme.deep + '">' + closed + '/' + total + ' closed</span>' +
+        '</div>' +
+      '</header>' +
+      '<div class="pbar"><div class="pbar-fill" style="width:' + pct + '%;background:linear-gradient(90deg,' + theme.deep + ',' + theme.main + ')"></div></div>' +
+      '<div class="items">' + sorted.map(function (it) { return itemRow(it, theme); }).join('') + '</div>' +
+      '</section>';
+  }
+
+  function summaryBar(items) {
+    var total = items.length;
+    var closed = items.filter(function (i) { return i.status === 'CLOSED'; }).length;
+    var open = total - closed;
+    var high = items.filter(function (i) { return i.priority === 'high' || i.priority === 'critical'; }).length;
+    var pct = total ? Math.round(100 * closed / total) : 0;
+    return [
+      [total, 'Strategic Items'], [open, 'Open'], [closed, 'Closed'],
+      [high, 'High / Critical'], [pct + '%', 'Overall Completion']
+    ].map(function (k) {
+      return '<div class="kpi"><b>' + k[0] + '</b><span>' + k[1] + '</span></div>';
+    }).join('');
+  }
+
+  /* ================================================================
+     4. Live fetch (identical pattern to the Task view)
+     ================================================================ */
+  function jsonp(url, cb, errCb) {
+    var name = 'stratCB' + Date.now();
+    var s = document.createElement('script');
+    var timer = setTimeout(function () { cleanup(); errCb(new Error('Live request timed out')); }, 20000);
+    function cleanup() { clearTimeout(timer); try { delete window[name]; } catch (e) { window[name] = undefined; } if (s.parentNode) s.parentNode.removeChild(s); }
+    window[name] = function (data) { cleanup(); cb(data); };
+    s.onerror = function () { cleanup(); errCb(new Error('Could not reach the Google Sheet service')); };
+    s.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'callback=' + name + '&t=' + Date.now();
+    document.body.appendChild(s);
+  }
+  function fetchLive(cb, errCb) {
+    var url = CONFIG.API_URL;
+    if (!url || url.indexOf('PASTE_') === 0) { errCb(new Error('No API_URL configured')); return; }
+    if (typeof fetch === 'function') {
+      fetch(url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now())
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(cb)
+        .catch(function () { jsonp(url, cb, errCb); });
+    } else { jsonp(url, cb, errCb); }
+  }
+
+  /* ================================================================
+     5. UI wiring
+     ================================================================ */
+  var wrap = document.getElementById('wrap');
+  var statusEl = document.getElementById('status');
+  var liveEl = document.getElementById('live');
+  var warnEl = document.getElementById('warn');
+  var summaryEl = document.getElementById('summary');
+
+  function stamp() {
+    var d = new Date();
+    return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+  }
+  function setStatus(txt, cls) { statusEl.textContent = txt; statusEl.className = cls || ''; }
+
+  function render(items, source) {
+    var groups = groupByDept(items);
+    summaryEl.innerHTML = summaryBar(items);
+    wrap.innerHTML = groups.length
+      ? groups.map(deptCard).join('')
+      : '<p class="quiet" style="text-align:center;padding:60px 0;">No strategic items found yet. Add rows to the "Strategy" sheet — columns: Strategic Item, Department, Timeline, Priority, Status, Remarks.</p>';
+    var tag = source === 'live' ? 'LIVE' : (source === 'snapshot' ? 'SNAPSHOT' : source);
+    liveEl.textContent = tag;
+    liveEl.className = 'pill ' + (source === 'live' ? 'ok' : 'warnpill');
+  }
+
+  function applyRows(rows, source) {
+    var parsed = parseStrategy(rows);
+    render(parsed.items, source);
+    if (parsed.unmatched.length) {
+      warnEl.style.display = '';
+      warnEl.textContent = '⚠ Department name(s) not recognised, grouped under "Other": ' +
+        parsed.unmatched.join(' · ') + ' — check spelling or add an alias in CONFIG.DEPARTMENTS.';
+    } else { warnEl.style.display = 'none'; }
+    setStatus(parsed.items.length + ' strategic items · updated ' + stamp());
+  }
+
+  function loadLive(silent) {
+    if (!silent) setStatus('Fetching the live Strategy sheet…');
+    fetchLive(function (res) {
+      try {
+        if (!res || res.ok === false) throw new Error(res && res.error ? res.error : 'Bad response');
+        applyRows(res.strategy || [], 'live');
+      } catch (e) { setStatus('⚠ ' + e.message, 'err'); }
+    }, function (err) {
+      if (window.EMBEDDED_STRATEGY_ROWS && !wrap.innerHTML) {
+        applyRows(window.EMBEDDED_STRATEGY_ROWS, 'snapshot');
+      }
+      setStatus('⚠ Live sheet unavailable (' + err.message + ')' +
+        (window.EMBEDDED_STRATEGY_ROWS ? ' — showing last snapshot' : ''), 'err');
+    });
+  }
+
+  document.getElementById('refresh').onclick = function () { loadLive(false); };
+
+  if (window.EMBEDDED_STRATEGY_ROWS) applyRows(window.EMBEDDED_STRATEGY_ROWS, 'snapshot');
+  loadLive(!!window.EMBEDDED_STRATEGY_ROWS);
+  if (CONFIG.REFRESH_MINUTES > 0) setInterval(function () { loadLive(true); }, CONFIG.REFRESH_MINUTES * 60000);
+
+  window.__strategyPipeline = { parseStrategy: parseStrategy, groupByDept: groupByDept, CONFIG: CONFIG };
+})();
 </script>
 </body>
 </html>
