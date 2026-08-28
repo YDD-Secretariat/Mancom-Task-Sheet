@@ -30,6 +30,9 @@
   button.tb:hover { background:var(--teal); }
   button.tb.outline { background:#fff; color:var(--deep); border:2px solid var(--deep); }
   button.tb.outline:hover { background:var(--tint); }
+  .navlink { font-size:12.5px; font-weight:800; color:var(--deep); text-decoration:none;
+    padding:9px 14px; border:2px solid var(--deep); border-radius:12px; letter-spacing:.3px; }
+  .navlink:hover { background:var(--tint); }
   #drop { border:2px dashed #B7CCC7; border-radius:12px; padding:9px 14px;
     font-size:12px; color:var(--teal); font-weight:700; cursor:pointer;
     background:var(--tint); transition:.15s; }
@@ -61,17 +64,12 @@
     <div class="tb-text"><b>MANCOM Card Studio</b><span>Live from Google Sheets</span></div>
     <span id="live" class="pill">…</span>
     <div id="status">Loading…</div>
+    <a class="navlink" href="strategy.html">Strategic Agenda →</a>
     <button class="tb outline" id="refresh">⟳ Refresh</button>
     <div id="drop">⇪ .xlsx</div>
     <input type="file" id="file" accept=".xlsx">
     <button class="tb" id="dl-all">All card PNGs</button>
     <button class="tb outline" id="dl-passports">All passports</button>
-    <a href="strategy.html" class="tb strategy" title="Open Strategy workspace">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-        <path d="M5 16l1.5-9 3.2 4.2L12 4l2.3 7.2L17.5 7 19 16H5zm0 2h14v2H5v-2z"/>
-      </svg>
-      Strategy
-    </a>
   </div>
   <div id="warn"></div>
   <div id="grid"></div>
@@ -475,7 +473,7 @@
      ================================================================ */
   var CONFIG = {
     // Paste the /exec URL of your deployed Apps Script Web App here:
-    API_URL: 'https://script.google.com/macros/s/AKfycbxu0bYasICXR9zY_j_lkHtFtJHP4ncWjCLegsD7lF5dC9Z_zoTy8TnF5p4my8mIP0l1Hw/exec',
+    API_URL: 'PASTE_YOUR_APPS_SCRIPT_EXEC_URL_HERE',
 
     // Auto re-check the sheet every N minutes (0 = off)
     REFRESH_MINUTES: 5,
