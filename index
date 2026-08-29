@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MANCOM Card Studio — Weekly Action Cards</title>
+<style>
+  :root { --ink:#10211F; --sub:#5B6B68; --teal:#0E7C6B; --deep:#0A5A4E;
+          --tint:#E4F1EE; --mist:#F1F5F4; --line:#E2EAE8; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:"Avenir Next","Segoe UI","Helvetica Neue",system-ui,Arial,sans-serif;
+         background:#EDF1F0; color:var(--ink); }
+  .topbar { position:sticky; top:0; z-index:9; background:#fff;
+    border-bottom:1px solid var(--line); padding:14px 26px;
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    box-shadow:0 4px 18px rgba(16,33,31,.06); }
+  .logo { width:42px; height:42px; border-radius:12px; background:var(--deep);
+    color:#fff; display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:13px; letter-spacing:1px; }
+  .tb-text b { display:block; font-size:15px; }
+  .tb-text span { font-size:11px; color:var(--sub); letter-spacing:1.4px; text-transform:uppercase; }
+  .pill { font-size:10px; font-weight:800; letter-spacing:1.4px; padding:5px 10px;
+    border-radius:999px; background:#EDF1F0; color:var(--sub); }
+  .pill.ok { background:#E4F1EE; color:#0A5A4E; }
+  .pill.warnpill { background:#F7F0DB; color:#8A6D1F; }
+  #status { flex:1; text-align:center; font-size:12.5px; color:var(--sub); min-width:200px; }
+  #status.err { color:#C6403C; font-weight:600; }
+  button.tb { border:none; border-radius:12px; padding:10px 16px; font-size:12.5px;
+    font-weight:800; color:#fff; background:var(--deep); cursor:pointer; letter-spacing:.4px; }
+  button.tb:hover { background:var(--teal); }
+  button.tb.outline { background:#fff; color:var(--deep); border:2px solid var(--deep); }
+  button.tb.outline:hover { background:var(--tint); }
+  .navlink { font-size:12.5px; font-weight:800; color:var(--deep); text-decoration:none;
+    padding:9px 14px; border:2px solid var(--deep); border-radius:12px; letter-spacing:.3px; }
+  .navlink:hover { background:var(--tint); }
+  #drop { border:2px dashed #B7CCC7; border-radius:12px; padding:9px 14px;
+    font-size:12px; color:var(--teal); font-weight:700; cursor:pointer;
+    background:var(--tint); transition:.15s; }
+  #drop.over, #drop:hover { border-color:var(--teal); background:#D6EAE5; }
+  #file { display:none; }
+  #warn { display:none; max-width:1240px; margin:16px auto -6px; padding:12px 18px;
+    background:#F7F0DB; color:#7A5F16; border-radius:12px; font-size:12.5px; line-height:1.5; }
+  #grid { max-width:1240px; margin:26px auto 60px; padding:0 20px;
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(380px,1fr)); gap:24px; }
+  .cell { background:#fff; border:1px solid var(--line); border-radius:18px;
+    overflow:hidden; box-shadow:0 12px 34px rgba(16,33,31,.10); }
+  .cellbar { display:flex; justify-content:space-between; align-items:center; gap:10px;
+    padding:11px 16px; border-bottom:1px solid var(--line); background:#FAFBFB; }
+  .cellbar span { font-size:13px; font-weight:700; display:flex; align-items:center; gap:8px; }
+  .dot { width:10px; height:10px; border-radius:50%; display:inline-block; flex:none; }
+  .cellbar button { border:none; color:#fff; font-weight:800; background:var(--deep);
+    font-size:11.5px; padding:8px 12px; border-radius:9px; cursor:pointer; letter-spacing:.4px; }
+  .cellbar button:disabled { opacity:.5; }
+  .cellbar button.ghost { background:#fff; border:1.5px solid var(--deep); color:var(--deep); }
+  .btns { display:flex; gap:6px; }
+  .frame svg { width:100%; height:auto; display:block; }
+  @media print { .topbar, .cellbar, #warn { display:none; } body { background:#fff; }
+    #grid { display:block; } .cell { box-shadow:none; border:none; page-break-after:always; } }
+
+  /* ==== ADDED: Update-status modal (task 1) ==== */
+  #upd-overlay { display:none; position:fixed; inset:0; background:rgba(16,33,31,.45);
+    z-index:50; align-items:flex-end; justify-content:center; }
+  #upd-overlay.open { display:flex; }
+  #upd-modal { background:#fff; width:100%; max-width:480px; max-height:82vh; overflow-y:auto;
+    border-radius:18px 18px 0 0; padding:18px 18px 26px; box-shadow:0 -10px 40px rgba(16,33,31,.25); }
+  #upd-modal h3 { font-size:16px; margin-bottom:2px; }
+  #upd-modal .upd-sub { font-size:12px; color:var(--sub); margin-bottom:14px; }
+  .upd-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--line); }
+  .upd-row:first-of-type { border-top:none; }
+  .upd-row .upd-dot { width:10px; height:10px; border-radius:50%; flex:none; }
+  .upd-row .upd-action { flex:1; font-size:13px; line-height:1.35; }
+  .upd-row select { font-size:12.5px; padding:7px 8px; border-radius:9px; border:1px solid var(--line);
+    background:#fff; color:var(--ink); }
+  .upd-row button.upd-save { border:none; border-radius:9px; padding:7px 10px; font-size:11.5px;
+    font-weight:800; color:#fff; background:var(--deep); cursor:pointer; }
+  .upd-row button.upd-save:disabled { opacity:.5; }
+  #upd-close { position:sticky; top:0; float:right; border:none; background:none; font-size:20px;
+    color:var(--sub); cursor:pointer; line-height:1; }
+  @media (max-width:600px) {
+    #upd-modal { max-width:100%; }
+  }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="logo">YDD</div>
+    <div class="tb-text"><b>MANCOM Card Studio</b><span>Live from Google Sheets</span></div>
+    <span id="live" class="pill">…</span>
+    <div id="status">Loading…</div>
+    <a class="navlink" href="strategy.html">Strategic Agenda →</a>
+    <button class="tb outline" id="refresh">⟳ Refresh</button>
+    <div id="drop">⇪ .xlsx</div>
+    <input type="file" id="file" accept=".xlsx">
+    <button class="tb" id="dl-all">All card PNGs</button>
+    <button class="tb outline" id="dl-passports">All passports</button>
+  </div>
+  <div id="warn"></div>
+  <div id="grid"></div>
+
+  <!-- ADDED: Update-status modal (task 1) -->
+  <div id="upd-overlay">
+    <div id="upd-modal">
+      <button id="upd-close" aria-label="Close">✕</button>
+      <h3 id="upd-title">Update tasks</h3>
+      <div class="upd-sub">Tap a status, then Save. Changes sync to the live sheet.</div>
+      <div id="upd-list"></div>
+    </div>
+  </div>
+  <script>window.EMBEDDED_ROWS = {"now": [["MANCOM WEEKLY MEETING ACTION REPORT – 18th July 2026"], [], ["1. AFCMF REACH OUT PROGRAM"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [1.0, "Resolve fund disbursement account issue (IYC account vs. church account)", "Oluwatosin Fasanya, Ayodeji Makinde", "TBD", "Open", "Account number confusion; need to confirm correct account with Bro. Ben."], [2.0, "Send out reporting templates together with artwork to all areas", "Oluwatosin Fasanya", "TBD", "Open", "7 responses received so far."], [3.0, "Confirm preacher for AFCMF Reach Out program", "Oluwatosin Fasanya, Bro. Ben", "TBD", "Open", "Preacher selection needs approval from Bro. Ben."], [4.0, "Follow up on transport link issue with Bro. Ben", "Oluwatosin Fasanya, Ayodeji Makinde", "TBD", "Open", "Link not accepting responses; scanned physical form sent as alternative."], [5.0, "Conduct postmortem for AFCMF Reach Out program", "Oluwatosin Fasanya", "TBD", "Open", "All points noted. Need to develop publicity strategy for future outreaches, address security concerns, appoint timekeeper, clarify reach out vs outreach, implement content operation guidelines."], [], ["2. CAMP MEETING VOLUNTEERS"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [6.0, "Compile volunteer list for bookstore operations during camp meeting", "Daniel Dakoru", "Camp Meeting", "Open", "IN PROGRESS – Volunteer form shared; volunteers grouped into buckets. Area representatives to be in charge of sensitive areas (ticketing, library)."], [7.0, "Compile volunteer list for welfare department during camp meeting", "Daniel Dakoru", "Camp Meeting", "Open", "IN PROGRESS"], [8.0, "Compile volunteer list for ticketing system support during camp meeting", "Daniel Dakoru", "Camp Meeting", "Open", "IN PROGRESS"], [9.0, "Develop roster for kitchen/welfare duties – assign by area", "Daniel Dakoru", "Camp Meeting", "Open", "Screenshot of last year's roster shared."], [10.0, "New availability form to auto-sort volunteers into department buckets", "Isaac Lawal", "Camp Meeting", "Open", "Form shared; backend access to be shared with department heads."], [11.0, "AFCF team has 10 volunteers on ground already", "Daniel Dakoru", "Camp Meeting", "Info", "Closed – Noted"], [], ["3. BIBLE GIANTS COMPETITION (CAMP CALENDAR)"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [12.0, "Bible Giants now confirmed on camp calendar", "Gamaliel Adun / Olumide", "Camp Meeting", "Closed", "CWC and WCS fully engaged. Group created and training facilitated."], [13.0, "Ensure WCS provides complete support during Bible Giants", "Olumide", "Camp Meeting", "Open", "Follow up with WCS on support."], [14.0, "Develop publicity strategy for Bible Giants", "Paul Sobande", "Camp Meeting", "Open", "Need series of adverts on social media/WhatsApp to promote program."], [], ["4. TEENAGE MOVIE \"SHADOWS\""], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [15.0, "Send \"Shadows\" movie to Samuel Onipede to push to Bro. Ben for camp calendar", "Isaac Lawal", "TBD", "Open", "Need to find full slot on camp schedule."], [16.0, "Confirm arrangement for movie premiere (1-hour cut during camp + full movie online)", "Paul Sobande", "Camp Meeting", "Open", "Movie already shared with WCS. 10-min trailer slot secured during teenage program. Need full movie slot."], [], ["5. ACCOMMODATION FOR YOUTH MEMBERS (CAMP)"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [17.0, "Confirm accommodation arrangements for youth members", "Paul Sobande", "Camp Meeting", "Open", "CARRYOVER – Corps members to stay with ESCF. YDD members to be discussed at CWC meeting."], [18.0, "Address married couples accommodation issue", "Paul Sobande, Gamaliel Adun", "Camp Meeting", "Open", "Unresolved; needs further discussion."], [], ["6. SATURDAY NIGHT OUT WITH JESUS (SNJ)"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [19.0, "Finalize program document, venue, logistics, and content for SNJ", "Oluwabunmi Akinboade", "TBD", "Open", "Work in progress. Memo for program sent by Paul Sobande. Final document needed by next meeting."], [], ["7. LETTERS & MEMOS FOR PROGRAMS"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [20.0, "Confirm transport and logistics arrangements for camp meeting", "Paul Sobande", "Camp Meeting", "Open", "Memo sent to Bro. Gamaliel. Church transport plan to be confirmed via admin."], [], ["8. NCWC (NATIONAL CENTRAL WORKING COMMITTEE) MEETING"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [21.0, "Finalize budgets for NCWC", "Daniel Dakoru", "TBD", "Open", "Budget posted; waiting for feedback/clearance from Bro. Gamaliel."], [22.0, "Share NCWC program documents with Mancom Group", "Oluwabunmi Akinboade", "TBD", "Open", "Reviewed and closed."], [23.0, "Develop reporting templates for area feedback", "S&P Team", "Camp Meeting", "Open", "Form sent to areas; Mancom to help spread and respond."], [24.0, "Confirm venue for NCWC (Legacy)", "Paul Sobande", "Camp Meeting", "Open", "Letter sent."], [25.0, "Ensure all departments submit letter/memo requests", "All Departments", "TBD", "Open"], [], ["9. TEENAGE PROGRAMME DOCUMENTS (CAMP MEETING & BACK TO SCHOOL)"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [26.0, "Review final teaching outline/discussion guide with facilitators", "David Adesola, Daniel Dakoru", "2026-07-22", "Open", "Facilitators to be contacted; meeting to be scheduled for Monday/Tuesday."], [27.0, "Develop creative content for teenage program (playlets, short videos)", "David Adesola", "TBD", "Open", "PD submitted. Video clip shared for feedback."], [28.0, "Revise video content for camp meeting/back to school", "David Adesola", "Camp Meeting", "Open", "Feedback: video content good but may not be approved for streaming (known face/beards). Need to consider animated version or carousel slides with voiceover."], [29.0, "Develop mentorship framework – pilot during back-to-school program", "David Adesola", "Back-to-School", "Open", "Database of Anthony teenagers being collected tomorrow (Sunday). Mentorship champions meeting to follow."], [], ["10. TEENAGE SCHOLARSHIP INITIATIVE"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [30.0, "Review and finalize scholarship framework documents", "Daniel Dakoru", "TBD", "Open", "Document shared; needs thorough review. Team busy with camp planning."], [31.0, "Determine number of beneficiaries (based on budget, not funds available)", "Daniel Dakoru, Mancom", "TBD", "Open", "Need leadership decision on coverage and number."], [32.0, "Develop online application form with technology team", "Daniel Dakoru, Isaac Lawal", "TBD", "Open", "Need tech support for form."], [33.0, "Design publicity materials for scholarship with Secretariat", "Daniel Dakoru, Secretariat", "TBD", "Open", "Need flyers and promotional materials."], [34.0, "Address sustainability (investment fund, annual funding model)", "Daniel Dakoru", "TBD", "Open", "Need guaranteed source of finance."], [35.0, "Consider legal counsel involvement for scholarship terms", "Daniel Dakoru", "TBD", "Open", "Need legal review of documents."], [36.0, "Scholarship committee – address non-responsiveness of members", "Daniel Dakoru", "TBD", "Open", "Major challenge; members not responding."], [37.0, "Determine scholarship scope (Lagos only vs. all areas)", "Daniel Dakoru", "TBD", "Open", "Needs leadership decision."], [38.0, "Clarify scholarship model: one-off or renewable each year", "Daniel Dakoru", "TBD", "Open", "Renewable if student maintains average (SS1→SS2→SS3)."], [], ["11. MANCOM STRATEGIC RETREAT"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [39.0, "Confirm final dates for strategic retreat", "Gamaliel Adun", "TBD", "Open", "New date shared for next week."], [40.0, "Prepare memo for strategic retreat", "Paul Sobande", "TBD", "Open", "Memo prepared; to be re-sent with date changes."], [], ["12. ACADEMIC PROGRAM (JULY 18) – POSTMORTEM"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [41.0, "Send feedback form to students", "Oluwatosin Fasanya", "TBD", "Open", "Feedback form was planned as ticket for lunch; needs to be sent out."], [42.0, "Compile program report (pictures, attendance, feedback)", "Oluwatosin Fasanya", "TBD", "Open", "Report to be compiled and submitted to secretariat."], [43.0, "Collect feedback from areas on number of schools/students that joined", "Oluwatosin Fasanya", "TBD", "Open"], [44.0, "Improve game session time management for future programs", "Oluwatosin Fasanya", "Future", "Open", "Games took too long; pre-arrange seating to avoid online audience loss."], [], ["13. NATIONAL REVIVAL PROGRAM ARTWORK"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [45.0, "Review National Revival Program artwork and provide feedback", "All Mancom Members", "Camp Meeting", "Open", "Challenge with graphic designer. Camp meeting deadline may not be met. Raw files being requested."], [46.0, "Print posters and handouts for distribution during camp", "Oluwatosin Fasanya", "Camp Meeting", "Open", "Target: before camp starts – but deadline may not be met."], [], ["14. YOUTH CHOIR CONCERT (CAMP MEETING)"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [47.0, "Confirm budget for youth choir concert feeding", "Cole Seun, Isaac Lawal", "TBD", "Open", "Budget to be confirmed. Last year there were gaps in feeding."], [], ["15. 2027 CALENDAR"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [48.0, "Finalize and share 2027 calendar", "Gamaliel Adun", "TBD", "Open", "CARRYOVER – Ongoing work."], [], ["16. CAMP MEETING ARTWORK"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [49.0, "Create camp meeting artwork (youth service, Bible Giants, back-to-school)", "Paul Sobande, Designer", "Camp Meeting", "Open", "Need separate artwork for: youth service, Bible Giants, back-to-school program. All should relate to \"Go Beyond\" theme with variations."], [50.0, "Ensure artwork for Bible Giants matches registration advert", "Daniel Dakoru, Paul Sobande", "Camp Meeting", "Open", "Daniel to share existing advert with Paul for reference."], [], ["17. GENERAL / AOB"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [51.0, "All Mancom members to encourage youth officers to attend Wednesday prayer meetings", "All Mancom Members", "Ongoing", "Open", "CARRYOVER"], [52.0, "Publish YDD calendar draft at NCWC/camp meeting", "Gamaliel Adun, S&P", "Camp Meeting", "Open", "CARRYOVER"], [53.0, "Confirm youth counseling session during camp meeting", "David Adesola", "Camp Meeting", "Open", "Part of teenage program; to be implemented."], [54.0, "Follow up on Francophone countries meeting during camp meeting", "Ayodeji", "Camp Meeting", "Open"], [55.0, "Ensure Bro. Ben attends last prayer meeting of the month", "Ayodeji (via Gamaliel)", "TBD", "Open"], [56.0, "Technology team to provide access to youth data/registration for camp", "Abraham Miponjesu, Isaac Lawal", "Camp Meeting", "Open", "Permission requested; Isaac to follow up."], [], ["CLOSED ITEMS (Removed from Active Report)"], ["S/N", "Item", "Status", "Remark"], [1.0, "Bible Giants inclusion on camp calendar", "Closed", "Now on calendar."], [2.0, "Finalize NCWC program documents", "Closed", "Reviewed and closed."], [3.0, "AFCF team volunteers on ground", "Closed", "Noted."], [4.0, "Quiz master selection poll", "Closed", "Poll conducted; female candidates identified."], [5.0, "Location visits for AFCMF Reach Out", "Closed", "Visits conducted."], [], ["CARRYOVER ITEMS SUMMARY"], ["S/N", "Item", "Original Owner", "Due Date", "Status"], [17.0, "Confirm accommodation arrangements for youth members", "Paul Sobande", "Camp Meeting", "Still Open"], [18.0, "Address married couples accommodation issue", "Paul Sobande, Gamaliel Adun", "Camp Meeting", "Still Open"], [48.0, "Finalize and share 2027 calendar", "Gamaliel Adun", "TBD", "Still Open"], [51.0, "Encourage youth officers to attend Wednesday prayer meetings", "All Mancom Members", "Ongoing", "Still Open"], [52.0, "Publish YDD calendar draft at NCWC/camp meeting", "Gamaliel Adun, S&P", "Camp Meeting", "Still Open"], [6.0, "Compile volunteer list for bookstore operations", "Daniel Dakoru", "Camp Meeting", "Still Open"], [7.0, "Compile volunteer list for welfare department", "Daniel Dakoru", "Camp Meeting", "Still Open"], [8.0, "Compile volunteer list for ticketing system support", "Daniel Dakoru", "Camp Meeting", "Still Open"], [9.0, "Develop roster for kitchen/welfare duties", "Daniel Dakoru", "Camp Meeting", "Still Open"]], "last": [["MANCOM WEEKLY MEETING ACTION REPORT – 18th July 2026"], [], ["1. AFCMF REACH OUT POST-MORTEM"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [1.0, "Organize local post-mortem meeting for Lagos South Reach Out programme", "Odunayo Alomaja", "2026-07-17", "Closed", "Held on Friday, July 17. All key learnings documented."], [2.0, "Send invitation for national post-mortem meeting", "Paul Sobande", "2026-07-16", "Closed", "Invitation sent. Meeting scheduled for Thursday, July 23."], [3.0, "Develop improved publicity strategy for future mobile evangelism outreaches", "Outreach Team", "2026-07-25", "Open", "Publicity needs to start 3-4 weeks before programme. Awaiting documented strategy from Outreach Team."], [4.0, "Assign timekeeper role for outreach programmes to prevent timing overruns", "Outreach Team", "2026-07-18", "Open", "Timekeeper to be assigned for each programme."], [5.0, "Clarify \"Reach Out\" vs \"Outreach\" distinction to all areas and co-members", "Gamaliel Adun, Oluwatosin Fasanya", "2026-07-20", "Open", "Confusion between programmes has been recurring. Communication to be sent."], [6.0, "Address security concerns for location future programmes", "Oluwatosin Fasanya", "2026-07-20", "Open", "Security concerns caused cancellation consideration. Need alternative locations."], [7.0, "Implement content moderation guidelines for outreach programmes", "Oluwatosin Fasanya", "2026-07-18", "Open", "Ensure content aligns with conservative values and avoids distractions during preaching."], [], ["2. CAMP MEETING – VOLUNTEERS & WORKFORCE"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [8.0, "Compile volunteer list for bookstore operations during camp meeting", "Daniel Dakoru", "Camp Meeting", "Open", "IN PROGRESS – Volunteer registration form already circulated; awaiting final list."], [9.0, "Compile volunteer list for welfare department during camp meeting", "Daniel Dakoru", "Camp Meeting", "Open", "IN PROGRESS"], [10.0, "Compile volunteer list for ticketing system support during camp meeting", "Daniel Dakoru", "Camp Meeting", "Open", "IN PROGRESS"], [11.0, "Develop roster for kitchen/welfare duties – assign by area", "Daniel Dakoru, Isaac Lawal", "Camp Meeting", "Open", "Need to share volunteer list with kitchen coordinator. Screenshot of last year's roster shared."], [12.0, "New availability form to auto-sort volunteers into department buckets", "Isaac Lawal", "Camp Meeting", "Open", "Form ready. Backend access to be shared with department heads."], [13.0, "Confirm incentive structure for volunteers (free feeding) with church leadership", "Gamaliel Adun, Daniel Dakoru", "2026-07-27", "Open", "Incentive not yet officially confirmed. Need to formalize arrangement."], [14.0, "Communicate volunteer assignments clearly to area leaders", "Daniel Dakoru, Isaac Lawal", "2026-07-23", "Open", "This was a gap last year. Young people were not integrated into church departments."], [], ["3. BIBLE GIANTS COMPETITION"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [15.0, "Meet with Reverend Isaac/Bro. Ben to formally include Bible Giants on camp calendar", "Gamaliel Adun", "2026-07-20", "Open", "CARRYOVER – Issue has persisted for multiple years despite advance notice."], [16.0, "Identify and confirm quizmaster for Bible Giant competition", "Gamaliel Adun, C&E", "2026-07-19", "Open", "Shortlist: Sister Simi, Sister Keren, Bro Ezekiel, Bro Moses, Bro. Paul, Bro. John Poll to be taken on Sunday."], [17.0, "Organize training for quizmaster on competition system", "Olumide", "2026-07-23", "Open", "Training to be held during Thursday technology session."], [], ["4. TEENAGE PROGRAMME – CAMP MEETING & BACK-TO-SCHOOL"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [18.0, "Finalize facilitator list and teaching outline for teenage programme", "Daniel Dakoru, David Adesola", "2026-07-22", "Open", "Need to review potential facilitators from outside Lagos. Shortlist: Bro Odunayo, Bro Chris Njoku, Bro Adeliyi Moses Durotoluwa, Bro Adeniyi"], [19.0, "Review and finalize discussion guide with Mancom feedback", "Daniel Dakoru", "2026-07-18", "Open", "Mancom feedback outstanding on David/Daniel vs other Bible characters. Suggested: Joseph, Jabez, Gideon, Josiah."], [20.0, "Complete AI-generated video production for back-to-school programme", "David Adesola, Olumide", "2026-07-20", "Open", "Video script and production in progress. Target: 6-8 minute cinematic movie."], [21.0, "Identify and confirm shorter video for camp meeting use", "David Adesola", "2026-07-20", "Open", "3-minute video to be shared on Mancom Group for review."], [22.0, "Confirm arrangement for movie premiere during camp meeting", "Gamaliel Adun, Paul Sobande", "2026-07-20", "Open", "Need to find slot on camp schedule. Suggestion: premiere during teenage program or back-to-school."], [23.0, "Develop and implement mentorship framework for teenage programme", "C&E & AOG", "2026-07-25", "Open", "Structure needs finalization. Pilot during back-to-school programme."], [24.0, "Revamp best student award initiative for teenage programme", "Daniel Dakoru, David Adesola", "2026-07-30", "Open", "Need to define criteria and timeline."], [], ["5. ACCOMMODATION (CAMP MEETING)"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [25.0, "Confirm accommodation arrangements for youth members", "Oluwatosin Fasanya", "2026-07-20", "Open", "Need to coordinate with AFCF/ACF on available space. Some members to be drafted into church departments."], [26.0, "Address married couples accommodation issue", "Paul Sobande, Gamaliel Adun", "Camp Meeting", "Open", "CARRYOVER – Unresolved. Need further discussion."], [27.0, "Formalize arrangement for YDD core members accommodation", "Gamaliel Adun, Paul Sobande", "2026-07-25", "Open", "Need to speak with Bro. Ben on possible accommodation allocation for YDD workers."], [], ["6. SATURDAY NIGHT OUT WITH JESUS (SNJ)"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [28.0, "Confirm SNJ program on camp calendar", "Samuel Onipede", "TBD", "Open", "Program approved by Bro. Ben. Need final calendar slot."], [29.0, "Finalize program document, venue, logistics, and content for SNJ", "Oluwabunmi Akinboade", "TBD", "Open", "IN PROGRESS – Venue chosen. Feedback mechanism to be developed."], [30.0, "Write memo to VC for Legacy Hall and School of Natural & Applied Science Library", "Paul Sobande, Gamaliel Adun", "2026-07-18", "Open", "Need to confirm verbal approval from VC. Memo to be prepared for official record."], [], ["7. NCWC (NATIONAL CENTRAL WORKING COMMITTEE) MEETING"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [31.0, "Finalize budgets for NCWC (100 people expected)", "Daniel Dakoru", "2026-07-18", "Open", "Budget dropped on WhatsApp group; Mancom comments outstanding."], [32.0, "Share NCWC program documents with Mancom Group", "Oluwabunmi Akinboade", "2026-07-18", "Open", "Already shared with Bro. Gamaliel. Needs broader review on Mancom Group."], [33.0, "Develop/review reporting templates for area feedback", "S&P Team", "Camp Meeting", "Open", "IN PROGRESS – Almost done. To be shared tonight or tomorrow."], [34.0, "Follow up with areas on responsiveness (Mancom reps to support)", "All Mancom Members", "Camp Meeting", "Open", "Areas generally non-responsive. Mancom reps to assist with follow-up."], [35.0, "Confirm venue for NCWC (Legacy – pending confirmation)", "Paul Sobande", "Camp Meeting", "Open", "Need to engage VC. Memo to be written."], [], ["8. MANCOM STRATEGIC RETREAT"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [36.0, "Schedule and hold Mancom strategic retreat (hybrid) – 3 sessions before camp", "Gamaliel Adun", "2026-07-24", "Open", "Dates: July 24-25 (Friday physical, Saturday, Sunday)"], [37.0, "Plan and coordinate physical Mancom retreat for Friday-Saturday (July 24-25)", "Gamaliel Adun, Paul Sobande", "2026-07-24", "Open", "Accommodation needed for ~15 people. To be arranged."], [38.0, "Prepare memo for strategic retreat (accommodation, venue, logistics)", "Daniel Dakoru", "2026-07-20", "Open", "Need to finalize logistics with Bro. Ben."], [39.0, "Confirm accommodation for Friday night (target: 15 people)", "Daniel Dakoru", "2026-07-20", "Open", "Walking towards 15 people. Need to confirm numbers."], [40.0, "Mancom retreat agenda: strategy, post-mortem, camp preparation, programme planning", "Gamaliel Adun", "2026-07-24", "Open", "Agenda to be shared before retreat."], [], ["9. ACADEMIC PROGRAMME (JULY 25)"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [41.0, "Finalize programme flow and run-down for academic programme", "Oluwatosin Fasanya", "2026-07-15", "Closed", "4 hours 30 minutes programme. Run-down shared with Mancom."], [42.0, "Confirm panelists and moderator for academic programme", "Oluwatosin Fasanya", "2026-07-15", "Closed", "Need employer perspective panelist (suggested: Bro Olumide). Student panelists need reconsideration."], [43.0, "Confirm preacher for spiritual session", "Oluwatosin Fasanya", "2026-07-15", "Closed", "Bro. Odunayo suggested for spiritual session."], [44.0, "Record program for posterity and archive", "Oluwatosin Fasanya", "2026-07-25", "Closed", "Record on YouTube or preferred platform."], [45.0, "Mancom to inform areas about academic program", "All Mancom Members", "2026-07-15", "Closed", "Encourage area participation. Areas to meet centrally for streaming."], [], ["10. NATIONAL REVIVAL PROGRAMME ARTWORK"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [46.0, "Complete artwork design for National Revival Programme", "Oluwatosin Fasanya", "2026-07-18", "Open", "Waiting on graphic designer response. Comments sent; no response yet."], [47.0, "Print posters and handouts for distribution during camp", "Oluwatosin Fasanya", "Camp Meeting", "Open", "Target: before camp starts. Printing discussion held with AFCF."], [], ["11. TEENAGE SCHOLARSHIP INITIATIVE"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [48.0, "Review and finalize scholarship framework documents", "Daniel Dakoru", "2026-07-25", "Open", "Comprehensive documents already prepared. Need Mancom feedback."], [49.0, "Agree on funding mechanism for scholarship scheme", "Daniel Dakoru, Mancom", "2026-07-25", "Open", "Major challenge: how to finance sustainably. Suggestions: small entry point start, pitch with practical success."], [50.0, "Clarify scholarship scope: one-off or renewable each year", "Daniel Dakoru", "2026-07-25", "Open", "Renewable if student maintains required average. No need to reapply."], [51.0, "Determine scholarship budget before determining beneficiaries", "Daniel Dakoru, Mancom", "2026-07-25", "Open", "Need to decide total budget, then determine number of beneficiaries."], [52.0, "Address scholarship committee non-responsiveness", "Daniel Dakoru", "2026-07-25", "Open", "Major challenge; members not responding."], [], ["12. YOUTH CHOIR CONCERT"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [53.0, "Coordinate with Bro. Banji on youth choir feeding arrangements", "Cole Seun, Daniel Dakoru", "2026-07-20", "Open", "Need to clarify numbers and budget."], [54.0, "Establish clear communication channel for youth choir matters", "Gamaliel Adun", "2026-07-25", "Open", "Last year's loophole to be avoided. Need dedicated intermediary."], [55.0, "Confirm if youth choir concert falls under AOG or YDD", "Gamaliel Adun", "2026-07-25", "Open", "Discussion needed. Bulk of worship is AOG but YDD involved."], [], ["13. LETTERS & MEMOS"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [56.0, "Write and submit memos for Legacy Hall and School of Natural & Applied Science Library", "Paul Sobande", "2026-07-18", "Open", "Need to confirm VC approval process."], [57.0, "Write memo for transport movement (attach YDD to church department)", "Paul Sobande", "2026-07-20", "Open", "Need conversation with admin."], [58.0, "Write memo for SNJ program to VC", "Oluwabunmi Akinboade", "2026-07-20", "Open", "Venue approval needed."], [], ["14. 2027 CALENDAR"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [59.0, "Finalize and share 2027 calendar", "Gamaliel Adun", "2026-07-31", "Open", "CARRYOVER – Ongoing work. To be shared at NCWC/camp meeting."], [], ["15. YDD PORTAL & TECHNOLOGY"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [60.0, "Schedule and hold alignment meeting with Abraham MiponJesu on church CRM workflow", "Olumide", "2026-07-18", "Open", "MiponJesu unavailable previously. Need to reschedule."], [61.0, "Develop French version of YDD portal", "Technology Team (Nathaniel Oladunmomi, Olumide)", "2026-07-31", "Open", "Pending translation of content."], [62.0, "Gather leaders' details from Francophone countries for YDD portal", "Isaac Lawal", "2026-07-20", "Open", "No response from some countries. Language barrier."], [], ["16. GENERAL / AOB"], ["S/N", "Action Point", "Actionee", "Due Date", "Status", "Remark"], [63.0, "All Mancom members to encourage youth officers to attend Wednesday prayer meetings", "All Mancom Members", "Ongoing", "Open", "CARRYOVER – Continuous encouragement."], [64.0, "Publish YDD calendar draft at NCWC/camp meeting", "Gamaliel Adun, S&P", "Camp Meeting", "Open", "CARRYOVER"], [65.0, "Encourage all Mancom members to support youth weekend programmes", "All Mancom Members", "2026-07-27", "Open"], [66.0, "Conduct Mancom prayer meeting before camp", "Gamaliel Adun", "2026-07-25", "Open", "Need to fix date."], [67.0, "Conduct nationwide Mancom preparation meeting (July 28)", "Gamaliel Adun", "2026-07-28", "Open", "General preparation for camp, schedules, synergizing with other areas."], [68.0, "Develop and implement feedback collection system for all programmes", "Isaac Lawal", "2026-07-25", "Open"], [69.0, "Ensure all departments submit letter/memo requests to Mancom Group for processing", "All Departments", "2026-07-20", "Open"], [], ["CLOSED ITEMS (Removed from Active Report)"], ["S/N", "Item", "Status", "Remark"], [1.0, "Local post-mortem for Lagos South Reach Out programme", "Closed", "Held on July 17."], [2.0, "Send invitation for national post-mortem meeting", "Closed", "Sent. Meeting scheduled for July 23."], [3.0, "Transport request form issue resolution", "Closed", "Form shared with Mancom; admin approval process clarified."], [4.0, "AFCMF Reach Out programme reports", "Closed", "Reports received from areas. Feedback template used."], [], ["CARRYOVER ITEMS SUMMARY"], ["S/N", "Item", "Original Owner", "Due Date", "Status"], [1.0, "Meet with Rev. Isaac/Bro. Ben regarding Bible Giants on camp calendar", "Gamaliel Adun", "2026-07-20", "Still Open"], [2.0, "Confirm accommodation arrangements for youth members", "Oluwatosin Fasanya", "Camp Meeting", "Still Open"], [3.0, "Address married couples accommodation issue", "Paul Sobande, Gamaliel Adun", "Camp Meeting", "Still Open"], [4.0, "Finalize and share 2027 calendar", "Gamaliel Adun", "2026-07-31", "Still Open"], [5.0, "Encourage youth officers to attend Wednesday prayer meetings", "All Mancom Members", "Ongoing", "Still Open"], [6.0, "Publish YDD calendar draft at NCWC/camp meeting", "Gamaliel Adun, S&P", "Camp Meeting", "Still Open"], [7.0, "Compile volunteer list for bookstore operations", "Daniel Dakoru", "Camp Meeting", "Still Open"], [8.0, "Compile volunteer list for welfare department", "Daniel Dakoru", "Camp Meeting", "Still Open"], [9.0, "Compile volunteer list for ticketing system support", "Daniel Dakoru", "Camp Meeting", "Still Open"], [10.0, "Develop roster for kitchen/welfare duties", "Daniel Dakoru", "Camp Meeting", "Still Open"], [], ["STATUS SU"]], "members": [["Name", "Email", "Department", "Photo URL (optional)", "Position"], ["Lawal Isaac", "lawalisaac04@gmail.com", "Secretariat", 9067327877.0, "Asst. Head"], ["Paul Sobande", "sobandepaul90@gmail.com", "Secretariat", 8131927116.0, "Head"], ["Gamaliel Adun", "adungamaliel@gmail.com", "Leadership", 8090510924.0, "Weca Youth Leader"], ["David Adesola", "davidadesola57@gmail.com", "C&E", 7034540396.0, "Asst. Head"], ["Daniel Dakoru", "dakoru87@gmail.com", "C&E", 8024039573.0, "Head"], ["Oluwatosin Deborah", "ofasanya@apostolicfaithweca.org", "Outreach", 8168038532.0, "Asst. Head"], ["Odun Alomaja", "alomajaodunayo123@gmail.com", "Outreach", 8035559953.0, "Head"], ["MiponJesu", "abrahammiponjesu@gmail.com", "AOG", 8133484843.0, "Asst. Head"], ["Seun Cole", "dapocolemdg@yahoo.com", "AOG", 7031094949.0, "Head"], ["Ayodeji Makinde", "emmanuelmakinde1@gmail.com", "S&P", 8138419744.0, "Head"], ["Oluwabunmi Akinboade", "boadebunmi@gmail.com", "S&P", 8164599525.0, "Asst. Head"], ["Nathaniel Oladunmomi", "noladunmomi@apostolicfaithweca.org", "Technology", 8146270877.0, "Head"], ["Olumide Olaleye", "olumyco4xt@gmail.com", "Technology", 7065949717.0, "Asst. Head"]]};</script>
+  <script>/* MANCOM compact card renderer — pure string SVG, no DOM needed. */
+(function (global) {
+  var COLORS = {
+    ink: '#10211F', sub: '#5B6B68', teal: '#0E7C6B', tealDeep: '#0A5A4E',
+    tint: '#E4F1EE', mist: '#F1F5F4', line: '#E2EAE8',
+    pri: { critical: '#C6403C', high: '#D97E0F', medium: '#C9A227', low: '#35915F' }
+  };
+  var PRI_LABEL = { critical: 'Critical', high: 'High', medium: 'Medium', low: 'Low' };
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  // approximate text width (Helvetica-like)
+  function chW(ch) {
+    if (' iIljt.,:;\'!|('.indexOf(ch) >= 0) return 0.30;
+    if ('frะ-"]) '.indexOf(ch) >= 0) return 0.36;
+    if ('mwMW@'.indexOf(ch) >= 0) return 0.88;
+    if (ch >= 'A' && ch <= 'Z') return 0.68;
+    if (ch >= '0' && ch <= '9') return 0.56;
+    return 0.52;
+  }
+  function measure(text, size, bold) {
+    var w = 0; for (var i = 0; i < text.length; i++) w += chW(text[i]);
+    return w * size * (bold ? 1.06 : 1);
+  }
+  function wrap(text, size, bold, maxW, maxLines) {
+    var words = String(text).split(/\s+/), lines = [], cur = '';
+    for (var i = 0; i < words.length; i++) {
+      var t = cur ? cur + ' ' + words[i] : words[i];
+      if (measure(t, size, bold) <= maxW || !cur) cur = t;
+      else { lines.push(cur); cur = words[i]; }
+    }
+    if (cur) lines.push(cur);
+    if (maxLines && lines.length > maxLines) {
+      lines = lines.slice(0, maxLines);
+      var last = lines[maxLines - 1];
+      while (measure(last + '…', size, bold) > maxW && last.length > 4)
+        last = last.slice(0, -1).replace(/\s+$/, '');
+      lines[maxLines - 1] = last + '…';
+    }
+    return lines;
+  }
+  function tspans(lines, x, y, lh) {
+    return lines.map(function (l, i) {
+      return '<tspan x="' + x + '" y="' + (y + i * lh) + '">' + esc(l) + '</tspan>';
+    }).join('');
+  }
+
+  var DEF_THEME = { deep:'#0A5A4E', main:'#0E7C6B', tint:'#E4F1EE', mist:'#F1F5F4', alt:'#E8F0EE' };
+
+  function renderCard(p, meta) {
+    var TH = (p && p.theme) || DEF_THEME;
+    var W = 1080, PAD = 64, IW = W - PAD * 2;
+    var parts = [], y = 0;
+    function add(s) { parts.push(s); }
+
+    // ---------- header ----------
+    y = 66;
+    add('<rect x="' + PAD + '" y="' + y + '" width="92" height="92" rx="24" fill="' + TH.deep + '"/>' +
+        '<text x="' + (PAD + 46) + '" y="' + (y + 58) + '" text-anchor="middle" font-size="30" font-weight="800" fill="#fff" letter-spacing="1">YDD</text>');
+    add('<text x="' + (PAD + 114) + '" y="' + (y + 40) + '" font-size="30" font-weight="800" fill="' + COLORS.ink + '">MANCOM</text>');
+    add('<text x="' + (PAD + 114) + '" y="' + (y + 72) + '" font-size="19" letter-spacing="3" fill="' + COLORS.sub + '">YOUTH DEVELOPMENT · WEEKLY OPERATIONS</text>');
+    y += 92 + 58;
+
+    add('<text x="' + PAD + '" y="' + y + '" font-size="27" font-weight="800" letter-spacing="1.5" fill="' + TH.main + '">MANCOM WEEKLY ACTION PASSPORT  ·  WEEK ' + esc(meta.week) + '</text>');
+    y += 66;
+    add('<text x="' + PAD + '" y="' + y + '" font-size="72" font-weight="800" letter-spacing="-1.5" fill="' + COLORS.ink + '">' + esc(p.name) + '</text>');
+    y += 44;
+    add('<text x="' + PAD + '" y="' + y + '" font-size="30" fill="' + COLORS.sub + '">' + esc(p.dept + ' · ' + p.position) + '</text>');
+    y += 40;
+
+    var nAct = p.active.length;
+    var pillTxt = 'WEEK ' + meta.week + ' · ' + meta.dateStr.toUpperCase() + ' · ' +
+      (nAct ? nAct + ' ACTIVE TASK' + (nAct !== 1 ? 'S' : '') : 'NO ACTIVE TASKS');
+    var pw = measure(pillTxt, 26, true) + 64;
+    add('<rect x="' + PAD + '" y="' + y + '" width="' + pw + '" height="58" rx="29" fill="' + TH.deep + '"/>' +
+        '<text x="' + (PAD + 32) + '" y="' + (y + 38) + '" font-size="26" font-weight="800" letter-spacing="1" fill="#fff">' + esc(pillTxt) + '</text>');
+    y += 58 + 52;
+
+    // ---------- tasks ----------
+    var MAXROWS = 7;
+    if (nAct) {
+      add('<text x="' + PAD + '" y="' + y + '" font-size="26" font-weight="800" letter-spacing="1.5" fill="' + TH.main + '">THIS WEEK · ASSIGNED ACTIONS</text>');
+      y += 30;
+      var shown = p.active.slice(0, MAXROWS);
+      for (var i = 0; i < shown.length; i++) {
+        var t = shown[i];
+        var rightW = 220;
+        var titleLines = wrap(t.action, 30, true, IW - 96 - rightW - 40, 2);
+        var rowH = 58 + titleLines.length * 36 + 34;
+        var bg = i % 2 === 0 ? TH.mist : TH.alt;
+        add('<rect x="' + PAD + '" y="' + y + '" width="' + IW + '" height="' + rowH + '" rx="18" fill="' + bg + '"/>');
+        add('<rect x="' + PAD + '" y="' + y + '" width="8" height="' + rowH + '" rx="4" fill="' + COLORS.pri[t.pri] + '"/>');
+        var cy = y + rowH / 2;
+        add('<circle cx="' + (PAD + 56) + '" cy="' + cy + '" r="27" fill="' + TH.deep + '"/>' +
+            '<text x="' + (PAD + 56) + '" y="' + (cy + 10) + '" text-anchor="middle" font-size="27" font-weight="800" fill="#fff">' + (i + 1) + '</text>');
+        var tx = PAD + 100, ty = y + 56;
+        add('<text font-size="30" font-weight="700" fill="' + COLORS.ink + '">' + tspans(titleLines, tx, ty, 36) + '</text>');
+        var sub = (t.section ? t.section + '  ·  ' : '') + t.badge;
+        var subLines = wrap(sub, 22, false, IW - 96 - rightW - 40, 1);
+        add('<text font-size="22" fill="' + COLORS.sub + '">' + tspans(subLines, tx, ty + titleLines.length * 36, 26) + '</text>');
+        var rx = PAD + IW - 30;
+        add('<text x="' + rx + '" y="' + (cy - 6) + '" text-anchor="end" font-size="27" font-weight="800" fill="' + TH.deep + '">' + esc(t.due) + '</text>');
+        add('<circle cx="' + (rx - measure(PRI_LABEL[t.pri], 22, false) - 20) + '" cy="' + (cy + 22) + '" r="6" fill="' + COLORS.pri[t.pri] + '"/>' +
+            '<text x="' + rx + '" y="' + (cy + 29) + '" text-anchor="end" font-size="22" fill="' + COLORS.sub + '">' + PRI_LABEL[t.pri] + '</text>');
+        y += rowH + 14;
+      }
+      if (nAct > MAXROWS) {
+        add('<text x="' + PAD + '" y="' + (y + 26) + '" font-size="24" font-weight="700" fill="' + COLORS.sub + '">+ ' + (nAct - MAXROWS) + ' more action' + (nAct - MAXROWS !== 1 ? 's' : '') + ' on the full passport</text>');
+        y += 52;
+      }
+      y += 12;
+    } else {
+      var ebH = 120;
+      add('<rect x="' + PAD + '" y="' + y + '" width="' + IW + '" height="' + ebH + '" rx="18" fill="' + TH.tint + '"/>');
+      add('<text x="' + (PAD + 30) + '" y="' + (y + 52) + '" font-size="34" font-weight="800" fill="' + TH.deep + '">No active assignments this week.</text>');
+      add('<text x="' + (PAD + 30) + '" y="' + (y + 90) + '" font-size="22" letter-spacing="2.5" fill="' + TH.main + '" font-weight="700">PREVIOUS WEEK\u2019S HIGHLIGHTS BELOW</text>');
+      y += ebH + 24;
+      var acc = (p.accomplishments && p.accomplishments.length ? p.accomplishments : p.lastOpen || []).slice(0, 3);
+      for (var j = 0; j < acc.length; j++) {
+        var a = acc[j];
+        var aLines = wrap(a.action, 28, true, IW - 96 - 180, 2);
+        var aH = 50 + aLines.length * 34 + 26;
+        add('<rect x="' + PAD + '" y="' + y + '" width="' + IW + '" height="' + aH + '" rx="18" fill="' + TH.mist + '"/>');
+        add('<rect x="' + PAD + '" y="' + y + '" width="8" height="' + aH + '" rx="4" fill="' + COLORS.pri[a.pri || 'low'] + '"/>');
+        add('<text font-size="28" font-weight="700" fill="' + COLORS.ink + '">' + tspans(aLines, PAD + 36, y + 50, 34) + '</text>');
+        add('<text x="' + (PAD + IW - 30) + '" y="' + (y + 50) + '" text-anchor="end" font-size="24" font-weight="800" fill="' + TH.deep + '">' + esc(a.badge || '') + '</text>');
+        y += aH + 14;
+      }
+      y += 12;
+    }
+
+    // ---------- shared box ----------
+    if (p.shared && p.shared.length) {
+      var sShown = p.shared.slice(0, 2);
+      var sH = 62 + sShown.length * 40 + (p.shared.length > 2 ? 36 : 8) + 12;
+      add('<rect x="' + PAD + '" y="' + y + '" width="' + IW + '" height="' + sH + '" rx="18" fill="' + TH.tint + '"/>');
+      add('<text x="' + (PAD + 30) + '" y="' + (y + 46) + '" font-size="26" font-weight="800" letter-spacing="1" fill="' + TH.main + '">SHARED WITH ALL MANCOM  (' + p.shared.length + ')</text>');
+      var sy = y + 88;
+      for (var k = 0; k < sShown.length; k++) {
+        var sLines = wrap(sShown[k].action, 25, false, IW - 110, 1);
+        add('<circle cx="' + (PAD + 42) + '" cy="' + (sy - 8) + '" r="6" fill="' + TH.deep + '"/>');
+        add('<text font-size="25" fill="' + COLORS.ink + '">' + tspans(sLines, PAD + 62, sy, 30) + '</text>');
+        sy += 40;
+      }
+      if (p.shared.length > 2)
+        add('<text x="' + (PAD + 62) + '" y="' + sy + '" font-size="22" fill="' + COLORS.sub + '">+ ' + (p.shared.length - 2) + ' more shared item' + (p.shared.length - 2 !== 1 ? 's' : '') + '</text>');
+      y += sH + 26;
+    }
+
+    // ---------- footer ----------
+    y += 20;
+    add('<text x="' + (W / 2) + '" y="' + y + '" text-anchor="middle" font-size="23" fill="#9AA8A5">Compiled from the MANCOM weekly action sheet · Week ' + esc(meta.week) + ' · ' + esc(meta.dateLong) + '</text>');
+    y += 56;
+
+    var H = Math.max(y, 1080);
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" font-family="Helvetica, Arial, \'Segoe UI\', sans-serif">' +
+      '<rect width="' + W + '" height="' + H + '" rx="0" fill="#FFFFFF"/>' +
+      '<rect x="0" y="0" width="' + W + '" height="10" fill="' + TH.deep + '"/>' +
+      parts.join('') + '</svg>';
+    return { svg: svg, width: W, height: H };
+  }
+
+  var api = { renderCard: renderCard, wrap: wrap, measure: measure };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else global.CardRenderer = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+  <script>/* MANCOM full A4 passport renderer — returns a complete standalone HTML string. */
+(function (global) {
+  var PRI = {
+    critical: ['#C6403C', 'Critical'], high: ['#D97E0F', 'High'],
+    medium: ['#C9A227', 'Medium'], low: ['#35915F', 'Low']
+  };
+  var BADGE = {
+    'OPEN': ['var(--teal)', 'var(--tint)'], 'IN PROGRESS': ['#1D6FA5', '#E5F0F8'],
+    'WAITING': ['#8A6D1F', '#F7F0DB'], 'COMPLETED': ['#35915F', '#E6F3EB'],
+    'NOTED': ['#5B6B68', '#EDF1F0'], 'BLOCKED': ['#C6403C', '#FAE8E7']
+  };
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function donutSvg(segments, centerBig, centerSmall) {
+    var total = segments.reduce(function (a, s) { return a + s[0]; }, 0);
+    var r = 62, cx = 90, cy = 90, sw = 22, circ = 2 * Math.PI * r;
+    var parts = [];
+    if (!total) {
+      parts.push('<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="#E2EAE8" stroke-width="' + sw + '"/>');
+    } else {
+      var offset = -0.25 * circ;
+      parts.push('<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="#EDF2F1" stroke-width="' + sw + '"/>');
+      segments.forEach(function (s) {
+        if (!s[0]) return;
+        var dash = s[0] / total * circ;
+        parts.push('<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + s[1] +
+          '" stroke-width="' + sw + '" stroke-dasharray="' + dash.toFixed(2) + ' ' + (circ - dash).toFixed(2) +
+          '" stroke-dashoffset="' + (-offset).toFixed(2) + '"/>');
+        offset += dash;
+      });
+    }
+    return '<svg viewBox="0 0 180 180" width="180" height="180" role="img">' + parts.join('') +
+      '<text x="' + cx + '" y="' + (cy - 2) + '" text-anchor="middle" font-size="34" font-weight="800" fill="#10211F" font-family="inherit">' + centerBig + '</text>' +
+      '<text x="' + cx + '" y="' + (cy + 20) + '" text-anchor="middle" font-size="10" letter-spacing="1.5" fill="#5B6B68" font-family="inherit">' + centerSmall + '</text></svg>';
+  }
+
+  function stampSvg(week, dateStr, TH) {
+    return '<svg viewBox="0 0 150 150" width="118" height="118" class="stamp" role="img">' +
+      '<g transform="rotate(-11 75 75)">' +
+      '<circle cx="75" cy="75" r="70" fill="none" stroke="' + TH.main + '" stroke-width="3"/>' +
+      '<circle cx="75" cy="75" r="61" fill="none" stroke="' + TH.main + '" stroke-width="1.2" stroke-dasharray="3 4"/>' +
+      '<path id="arcTop" d="M 20 75 A 55 55 0 0 1 130 75" fill="none"/>' +
+      '<path id="arcBot" d="M 22 75 A 53 53 0 0 0 128 75" fill="none"/>' +
+      '<text font-size="11.5" letter-spacing="3" fill="' + TH.main + '" font-weight="700"><textPath href="#arcTop" startOffset="50%" text-anchor="middle">MANCOM WEEKLY</textPath></text>' +
+      '<text font-size="11.5" letter-spacing="3" fill="' + TH.main + '" font-weight="700"><textPath href="#arcBot" startOffset="50%" text-anchor="middle">ACTION PASSPORT</textPath></text>' +
+      '<text x="75" y="70" text-anchor="middle" font-size="26" font-weight="800" fill="' + TH.main + '">WK ' + week + '</text>' +
+      '<text x="75" y="90" text-anchor="middle" font-size="11" letter-spacing="1.5" fill="' + TH.main + '">' + esc(dateStr).toUpperCase() + '</text></g></svg>';
+  }
+
+  function mrz(name, dept, week, dateCompact) {
+    function pad(s, n) {
+      s = String(s).toUpperCase().replace(/[^A-Z0-9 ]/g, '').replace(/ /g, '<');
+      return (s + Array(n + 1).join('<')).slice(0, n);
+    }
+    var parts = name.split(' ');
+    var l1 = ('P<WECAYDD' + pad(parts[parts.length - 1], 12) + '<<' + pad(parts.slice(0, -1).join(' '), 16));
+    l1 = (l1 + Array(45).join('<')).slice(0, 44);
+    var wk = week < 10 ? '0' + week : '' + week;
+    var l2 = ('MANCOM' + pad(dept, 12) + 'WK' + wk + '<' + dateCompact + '<ACTIVE');
+    l2 = (l2 + Array(45).join('<')).slice(0, 44);
+    return [l1, l2];
+  }
+
+  function taskCard(t) {
+    var pc = PRI[t.pri][0], plabel = PRI[t.pri][1];
+    var b = BADGE[t.badge] || BADGE['OPEN'];
+    var owner = t.showOwner && t.owner ? '<span class="owner">\u25E6 ' + esc(t.owner) + '</span>' : '';
+    var remark = t.remark ? '<p class="remark">' + esc(t.remark) + '</p>' : '';
+    return '<article class="card" style="--pc:' + pc + '"><div class="card-strip"></div><div class="card-body">' +
+      '<div class="card-top"><span class="eyebrow">' + esc(t.section || '') + '</span>' +
+      '<span class="badge" style="color:' + b[0] + ';background:' + b[1] + '">' + esc(t.badge) + '</span></div>' +
+      '<h3>' + esc(t.action) + '</h3>' + remark +
+      '<div class="card-foot"><span class="due"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg> ' + esc(t.due) + '</span>' +
+      '<span class="pri"><i style="background:' + pc + '"></i>' + plabel + '</span>' + owner + '</div></div></article>';
+  }
+
+  function sharedRow(t) {
+    var pc = PRI[t.pri || 'medium'][0];
+    return '<div class="shared-row"><i style="background:' + pc + '"></i><div><p>' + esc(t.action) +
+      '</p><span>' + esc(t.due) + ' · Shared — ' + esc(t.owner || 'All MANCOM') + '</span></div></div>';
+  }
+
+  function timelineRows(tasks) {
+    var dated = tasks.filter(function (t) { return t.dueTs; })
+      .sort(function (a, b) { return a.dueTs - b.dueTs; })
+      .map(function (t) { return [t.due, t.action, PRI[t.pri][0]]; });
+    var buckets = {}, order = ['Camp Meeting', 'Back-to-School', 'Future', 'Ongoing'];
+    tasks.forEach(function (t) {
+      if (!t.dueTs && t.due !== 'TBD') (buckets[t.due] = buckets[t.due] || []).push(t);
+    });
+    Object.keys(buckets).sort(function (a, b) {
+      var ia = order.indexOf(a), ib = order.indexOf(b);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    }).forEach(function (k) {
+      buckets[k].slice(0, 4).forEach(function (t) { dated.push([k, t.action, PRI[t.pri][0]]); });
+    });
+    return dated.slice(0, 8);
+  }
+
+  function insightText(p) {
+    var first = p.name.split(' ')[0], s = p.stats;
+    if (!p.active.length) {
+      if (p.accomplishments.length)
+        return 'No active assignments this week. Last week ' + first + ' closed ' + p.accomplishments.length +
+          ' of ' + s.totalLast + ' tracked items \u2014 a clean handover into the camp-meeting run-up.';
+      return 'No active assignments this week. Bandwidth is available to support camp-meeting preparation across departments.';
+    }
+    var bits = [p.active.length + ' active responsibilit' + (p.active.length !== 1 ? 'ies' : 'y') + ' this week'];
+    if (s.dueWeek) bits.push(s.dueWeek + ' due within the week');
+    if (s.carried) bits.push(s.carried + ' carried forward from last week');
+    var lead = first + ' holds ' + bits.join(', ') + '.';
+    var crit = p.active.filter(function (t) { return t.pri === 'critical'; });
+    var high = p.active.filter(function (t) { return t.pri === 'high'; });
+    var tail;
+    if (crit.length) tail = ' Priority attention: \u201C' + crit[0].action.slice(0, 70).replace(/\s+$/, '') + '\u201D cannot slip further.';
+    else if (high.length) tail = ' Clearing \u201C' + high[0].action.slice(0, 60).replace(/\s+$/, '') + '\u201D early will free the run-in to camp meeting.';
+    else tail = ' Most items track to camp meeting \u2014 steady weekly progress keeps the load manageable.';
+    var done = s.completedLast ? ' ' + s.completedLast + ' item(s) were closed last week.' : '';
+    return lead + tail + done;
+  }
+
+  var CSS = ':root{--ink:#10211F;--sub:#5B6B68;--paper:#FFFFFF;--mist:#F4F7F6;--line:#E2EAE8;--teal:#0E7C6B;--teal-deep:#0A5A4E;--tint:#E4F1EE}*{margin:0;padding:0;box-sizing:border-box}html{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:"Avenir Next","Segoe UI","Helvetica Neue",system-ui,Arial,sans-serif;background:#EDF1F0;color:var(--ink);-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.45}.sheet{max-width:1080px;margin:24px auto;background:var(--paper);border-radius:22px;overflow:hidden;position:relative;box-shadow:0 24px 60px rgba(16,33,31,.14)}.sheet::before{content:"";display:block;height:7px;background:linear-gradient(90deg,var(--teal-deep),var(--teal) 45%,#5FB3A5)}.inner{padding:40px 48px 0}header{display:flex;justify-content:space-between;align-items:flex-start;gap:20px}.brand{display:flex;align-items:center;gap:14px}.mono-badge{width:52px;height:52px;border-radius:14px;background:var(--teal-deep);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;letter-spacing:1px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.18)}.brand-text b{display:block;font-size:15px;letter-spacing:.4px}.brand-text span{font-size:11px;color:var(--sub);letter-spacing:1.6px;text-transform:uppercase}.week-block{text-align:right;display:flex;gap:18px;align-items:center}.week-block .wk-text b{display:block;font-size:12px;letter-spacing:2.2px;color:var(--teal-deep)}.week-block .wk-text span{font-size:12px;color:var(--sub)}.stamp{filter:drop-shadow(0 2px 3px rgba(14,124,107,.18));opacity:.94}.identity{margin-top:26px;padding-bottom:26px;border-bottom:1px solid var(--line)}.identity .role{font-size:11px;letter-spacing:2.6px;text-transform:uppercase;color:var(--teal);font-weight:700}.identity h1{font-size:46px;font-weight:800;letter-spacing:-1.2px;text-transform:uppercase;line-height:1.05;margin:6px 0 12px}.summary{display:flex;flex-wrap:wrap;gap:8px}.chip{background:var(--tint);color:var(--teal-deep);font-weight:700;font-size:12.5px;padding:6px 13px;border-radius:999px}.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:24px 0}.kpi{background:var(--mist);border:1px solid var(--line);border-radius:14px;padding:14px 16px}.kpi b{font-size:26px;font-weight:800;display:block;letter-spacing:-.5px}.kpi span{font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--sub)}.kpi-warn b{color:#C6403C}.grid{display:grid;grid-template-columns:1fr 344px;gap:26px;align-items:start;padding-bottom:36px}.col-title{font-size:11px;letter-spacing:2.4px;text-transform:uppercase;color:var(--sub);font-weight:700;margin-bottom:12px}.col-sub{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--sub);margin:20px 0 10px;font-weight:700}.card{display:flex;background:var(--mist);border:1px solid var(--line);border-radius:16px;overflow:hidden;margin-bottom:12px;box-shadow:0 1px 2px rgba(16,33,31,.04);break-inside:avoid}.card-strip{width:5px;background:var(--pc);flex:none}.card-body{padding:14px 18px 13px;flex:1}.card-top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px}.eyebrow{font-size:9.5px;letter-spacing:1.8px;text-transform:uppercase;color:var(--sub)}.badge{font-size:10px;font-weight:800;letter-spacing:1.2px;padding:4px 10px;border-radius:999px;white-space:nowrap}.card h3{font-size:14.5px;font-weight:700;line-height:1.35;letter-spacing:-.1px}.remark{font-size:12.5px;color:var(--sub);margin-top:5px}.card-foot{display:flex;align-items:center;gap:16px;margin-top:10px;flex-wrap:wrap}.due{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--teal-deep)}.pri{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--sub);font-weight:600}.pri i,.lg i,.fmeta i{width:9px;height:9px;border-radius:50%;display:inline-block}.owner{font-size:11.5px;color:var(--sub)}.shared-row{display:flex;gap:10px;align-items:flex-start;padding:9px 4px;border-bottom:1px dashed var(--line)}.shared-row:last-child{border-bottom:none}.shared-row i{width:8px;height:8px;border-radius:50%;margin-top:5px;flex:none}.shared-row p{font-size:12.5px;font-weight:600}.shared-row span{font-size:11px;color:var(--sub)}.empty-state{background:var(--tint);border-radius:16px;padding:22px 24px;margin-bottom:16px}.empty-state h2{font-size:18px;color:var(--teal-deep);letter-spacing:-.2px}.empty-state p{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--teal);margin-top:6px;font-weight:700}.panel{background:var(--mist);border:1px solid var(--line);border-radius:18px;padding:20px 22px;margin-bottom:18px;break-inside:avoid}.panel h4{font-size:11px;letter-spacing:2.2px;text-transform:uppercase;color:var(--sub);margin-bottom:14px;font-weight:700}.donut-wrap{display:flex;justify-content:center;margin-bottom:8px}.lg{display:flex;align-items:center;gap:9px;font-size:12.5px;padding:5px 0}.lg span{flex:1;color:var(--sub)}.lg b{font-weight:800}.pbar-wrap{margin-top:6px}.pbar{height:12px;border-radius:999px;background:#E5ECEA;overflow:hidden}.pbar-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--teal-deep),var(--teal))}.pbar-meta{display:flex;justify-content:space-between;margin-top:7px;font-size:11.5px;color:var(--sub)}.pbar-meta span:first-child{font-weight:800;color:var(--teal-deep);font-size:13px}.focus-row{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.focus-row:last-child{border-bottom:none}.fnum{width:24px;height:24px;border-radius:8px;background:var(--teal-deep);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none}.focus-row p{font-size:12.5px;font-weight:700;line-height:1.35}.fmeta{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--sub);margin-top:3px}.tl-row{display:flex;align-items:flex-start;gap:10px;padding:7px 0}.tl-date{width:78px;flex:none;font-size:11px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--teal-deep);padding-top:1px}.tl-dot{width:8px;height:8px;border-radius:50%;margin-top:4px;flex:none}.tl-row p{font-size:12px;line-height:1.35}.insight{background:var(--teal-deep);color:#EAF4F2;border:none}.insight h4{color:#9CCFC5}.insight p{font-size:13px;line-height:1.6}.quiet{color:var(--sub);font-size:12.5px}.mrz{background:var(--mist);border-top:1px dashed #C9D6D3;padding:18px 48px 22px;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:14.5px;letter-spacing:2.5px;color:#41524F;line-height:1.7;white-space:nowrap;overflow:hidden}.printbar{max-width:1080px;margin:18px auto 0;display:flex;justify-content:flex-end;padding:0 6px}.printbar button{border:none;background:#0A5A4E;color:#fff;font-weight:800;font-size:12.5px;padding:10px 18px;border-radius:10px;cursor:pointer;letter-spacing:.4px}@media (max-width:860px){.inner{padding:26px 20px 0}.grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}.identity h1{font-size:32px}header{flex-direction:column}.week-block{align-self:flex-end}.mrz{padding:14px 20px;font-size:11px}}@media print{@page{size:A4 portrait;margin:8mm}body{background:#fff;font-size:11.5px}.sheet{box-shadow:none;margin:0;border-radius:0;max-width:100%}.kpi b{font-size:20px}.identity h1{font-size:34px}.card,.panel{box-shadow:none}.printbar{display:none}}';
+
+  var DEF_THEME = { deep:'#0A5A4E', main:'#0E7C6B', tint:'#E4F1EE', mist:'#F1F5F4', alt:'#E8F0EE' };
+
+  function renderPassport(p, meta) {
+    var TH = (p && p.theme) || DEF_THEME;
+    var THEME_CSS = ':root{--teal:' + TH.main + ';--teal-deep:' + TH.deep + ';--tint:' + TH.tint + '}' +
+      '.sheet::before{background:linear-gradient(90deg,' + TH.deep + ',' + TH.main + ' 45%,' + TH.tint + ')}';
+    var s = p.stats;
+    var noActive = !p.active.length;
+    var summary = noActive ? ['No active assignments this week'] :
+      [p.active.length + ' Active Task' + (p.active.length !== 1 ? 's' : '')];
+    if (!noActive) {
+      if (s.dueWeek) summary.push(s.dueWeek + ' Due This Week');
+      if (s.high) summary.push(s.high + ' High Priority');
+      if (s.carried) summary.push(s.carried + ' Carried Forward');
+    }
+    var kpis = [[p.active.length, 'Open Tasks'], [s.completedLast, 'Completed Last Week'],
+      [s.overdue, 'Overdue'], [s.dueWeek, 'Due This Week'], [s.high, 'High Priority']];
+    var kpiHtml = kpis.map(function (k) {
+      var warn = k[1] === 'Overdue' && k[0] > 0 ? ' kpi-warn' : '';
+      return '<div class="kpi' + warn + '"><b>' + k[0] + '</b><span>' + k[1] + '</span></div>';
+    }).join('');
+
+    var segs = [[s.completedLast, '#35915F', 'Completed'], [s.carried, '#D97E0F', 'Carried Forward'],
+      [s.newCount, TH.main, 'Newly Assigned']];
+    var donut = donutSvg(segs, String(p.active.length), 'ACTIVE');
+    var legend = segs.map(function (g) {
+      return '<div class="lg"><i style="background:' + g[1] + '"></i><span>' + g[2] + '</span><b>' + g[0] + '</b></div>';
+    }).join('') + '<div class="lg"><i style="background:#5B6B68"></i><span>Still Open (last wk)</span><b>' + s.openLast + '</b></div>';
+
+    var tasksHtml;
+    if (noActive) {
+      var head, list;
+      if (p.accomplishments.length) {
+        head = 'Previous week\u2019s accomplishments'; list = p.accomplishments;
+      } else {
+        head = 'Carried context from last week\u2019s report'; list = p.lastOpen.slice(0, 4);
+      }
+      tasksHtml = '<div class="empty-state"><h2>No active assignments this week.</h2><p>' + head + '</p></div>' +
+        list.map(taskCard).join('');
+    } else {
+      tasksHtml = p.active.map(taskCard).join('');
+      if (p.closedNow && p.closedNow.length) {
+        tasksHtml += '<h4 class="col-sub">Closed / noted this week</h4>' + p.closedNow.map(taskCard).join('');
+      }
+    }
+    var sharedHtml = p.shared.length ?
+      '<h4 class="col-sub">Shared with all MANCOM</h4>' + p.shared.map(sharedRow).join('') : '';
+
+    var focusSrc = p.active.length ? p.active : p.lastOpen;
+    var focusHtml = focusSrc.slice(0, 3).map(function (t, i) {
+      return '<div class="focus-row"><span class="fnum">' + (i + 1) + '</span><div><p>' + esc(t.action) +
+        '</p><span class="fmeta"><i style="background:' + PRI[t.pri][0] + '"></i>' + PRI[t.pri][1] +
+        ' · Due ' + esc(t.due) + '</span></div></div>';
+    }).join('') || '<p class="quiet">Nothing scheduled.</p>';
+
+    var tlHtml = timelineRows(p.active.length ? p.active : p.lastOpen).map(function (r) {
+      return '<div class="tl-row"><span class="tl-date">' + esc(r[0]) + '</span><span class="tl-dot" style="background:' +
+        r[2] + '"></span><p>' + esc(r[1]) + '</p></div>';
+    }).join('') || '<p class="quiet">No dated items this week.</p>';
+
+    var comp = s.completion == null ? 0 : s.completion;
+    var pctLabel = s.completion == null ? 'no items tracked last week' : 'of last week\u2019s items completed';
+    var dateCompact = meta.dateStr.replace(/ /g, '').toUpperCase();
+    var m = mrz(p.name, p.dept, meta.week, dateCompact);
+
+    return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+      '<title>' + esc(p.name) + ' \u2014 MANCOM Weekly Action Passport \u00B7 Week ' + meta.week + '</title>' +
+      '<style>' + CSS + THEME_CSS + '</style></head><body>' +
+      '<div class="printbar"><button onclick="window.print()">Print / Save as PDF (A4)</button></div>' +
+      '<div class="sheet"><div class="inner"><header>' +
+      '<div class="brand"><div class="mono-badge">YDD</div><div class="brand-text"><b>MANCOM</b><span>Youth Development \u00B7 Weekly Operations</span></div></div>' +
+      '<div class="week-block"><div class="wk-text"><b>MANCOM WEEKLY ACTION PASSPORT</b><span>Week ' + meta.week + ' \u00B7 ' + esc(meta.dateLong) + '</span></div>' +
+      stampSvg(meta.week, meta.dateStr, TH) + '</div></header>' +
+      '<section class="identity"><div class="role">' + esc(p.dept) + ' \u00B7 ' + esc(p.position) + '</div>' +
+      '<h1>' + esc(p.name) + '</h1><div class="summary">' +
+      summary.map(function (x) { return '<span class="chip">' + esc(x) + '</span>'; }).join('') + '</div></section>' +
+      '<div class="kpis">' + kpiHtml + '</div>' +
+      '<div class="grid"><div class="tasks-col"><div class="col-title">' +
+      (noActive ? 'Status' : 'This Week \u2014 Assigned Actions') + '</div>' + tasksHtml + sharedHtml + '</div>' +
+      '<aside><div class="panel"><h4>Week-on-Week Movement</h4><div class="donut-wrap">' + donut + '</div>' + legend + '</div>' +
+      '<div class="panel"><h4>Last Week Completion</h4><div class="pbar-wrap"><div class="pbar"><div class="pbar-fill" style="width:' + comp + '%"></div></div>' +
+      '<div class="pbar-meta"><span>' + comp + '%</span><span>' + esc(pctLabel) + '</span></div></div></div>' +
+      '<div class="panel"><h4>Focus of the Week</h4>' + focusHtml + '</div>' +
+      '<div class="panel"><h4>Upcoming Timeline</h4>' + tlHtml + '</div>' +
+      '<div class="panel insight"><h4>Smart Insight</h4><p>' + esc(insightText(p)) + '</p></div>' +
+      '</aside></div></div><div class="mrz">' + m[0] + '<br>' + m[1] + '</div></div></body></html>';
+  }
+
+  var api = { renderPassport: renderPassport };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else global.PassportRenderer = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+  <script>/* MANCOM Card Studio — live Google Sheet edition.
+   Data source: Apps Script Web App (JSON). Falls back to embedded snapshot + .xlsx drop. */
+(function () {
+  'use strict';
+
+  /* ================================================================
+     1. CONFIG  — the only part you normally need to edit
+     ================================================================ */
+  var CONFIG = {
+    // Paste the /exec URL of your deployed Apps Script Web App here:
+    API_URL: 'https://script.google.com/macros/s/AKfycbytS8yzg1hRdGi5YhXLe0DKGi7SJlfOFjE_tETmAN6wq6d2b29yqd4eb1FZomli1dIgew/exec',
+
+    // Auto re-check the sheet every N minutes (0 = off)
+    REFRESH_MINUTES: 5,
+
+    // Nicknames used in the Actionee column that aren't part of the person's
+    // full name in the Members sheet.  alias (lowercase) -> full name.
+    EXTRA_ALIASES: {
+      'fasanya': 'Oluwatosin Deborah',
+      'tosin': 'Oluwatosin Deborah',
+      'odunayo': 'Odun Alomaja',
+      'alomaja': 'Odun Alomaja',
+      'abraham': 'MiponJesu',
+      'miponjesu': 'MiponJesu',
+      'bunmi': 'Oluwabunmi Akinboade',
+      'cole': 'Seun Cole',
+      'seun': 'Seun Cole',
+      'olumide': 'Olumide Olaleye',
+      'ayodeji': 'Ayodeji Makinde',
+      'gamaliel': 'Gamaliel Adun',
+      'daniel': 'Daniel Dakoru',
+      'david': 'David Adesola',
+      'paul': 'Paul Sobande',
+      'isaac': 'Lawal Isaac',
+      'nathaniel': 'Nathaniel Oladunmomi'
+    },
+
+    // Used only when the Members sheet has no Gender column.
+    LADIES: ['Oluwatosin Deborah', 'Oluwabunmi Akinboade'],
+
+    // Force a specific colour for anyone:  'Full Name': 'themeKey'
+    // theme keys: rose plum magenta teal azure indigo violet emerald amber crimson slate rust cyan
+    THEME_OVERRIDES: {}
+  };
+
+  /* ================================================================
+     ADDED — 1b. Status update options (for the new "Update" button).
+     Value written back to the sheet's Status column | label shown to the user | dot colour.
+     Add/rename statuses here only — nothing else needs to change.
+     ================================================================ */
+  var STATUS_OPTIONS = [
+    { value: 'Open',               label: 'Open',                color: '#0E7C6B' },
+    { value: 'Pending',            label: 'Pending',              color: '#8A6D1F' },
+    { value: 'Work in Progress',   label: 'Work in Progress',     color: '#1D6FA5' },
+    { value: 'Closed',             label: 'Closed',                color: '#35915F' },
+    { value: 'Info',               label: 'Info / Noted',         color: '#5B6B68' }
+  ];
+  function statusColor(raw) {
+    var low = String(raw || '').toLowerCase();
+    for (var i = 0; i < STATUS_OPTIONS.length; i++) {
+      if (STATUS_OPTIONS[i].value.toLowerCase() === low) return STATUS_OPTIONS[i].color;
+    }
+    if (low.indexOf('progress') >= 0) return '#1D6FA5';
+    if (low.indexOf('pend') >= 0 || low.indexOf('wait') >= 0) return '#8A6D1F';
+    if (low === 'closed') return '#35915F';
+    return '#0E7C6B';
+  }
+
+  /* ================================================================
+     2. COLOUR THEMES
+     ================================================================ */
+  var THEMES = {
+    rose:    { deep: '#9D2B5E', main: '#C7407C', tint: '#FCE7F0', mist: '#FBF2F6', alt: '#F7E4EE' },
+    plum:    { deep: '#6D2B63', main: '#94408A', tint: '#F7E7F4', mist: '#FAF2F8', alt: '#F3E2F0' },
+    magenta: { deep: '#8E2F5A', main: '#B84A7E', tint: '#FBE8F1', mist: '#FBF3F7', alt: '#F6E3EE' },
+    teal:    { deep: '#0A5A4E', main: '#0E7C6B', tint: '#E4F1EE', mist: '#F1F5F4', alt: '#E8F0EE' },
+    azure:   { deep: '#12557F', main: '#1B7BB5', tint: '#E3F0F8', mist: '#F0F5F9', alt: '#E1EEF7' },
+    indigo:  { deep: '#33408C', main: '#4A5BC0', tint: '#E9EBF9', mist: '#F3F4FB', alt: '#E5E8F6' },
+    violet:  { deep: '#5B3A8E', main: '#7A52B8', tint: '#EFE8F9', mist: '#F5F2FB', alt: '#EBE3F6' },
+    emerald: { deep: '#1E6B41', main: '#2E9159', tint: '#E4F2E9', mist: '#F1F6F2', alt: '#E6F1EA' },
+    amber:   { deep: '#8A5A11', main: '#B57E17', tint: '#FBF0DB', mist: '#F9F5EB', alt: '#F7EED8' },
+    crimson: { deep: '#8E2B2B', main: '#B84141', tint: '#FBE8E8', mist: '#F9F2F2', alt: '#F7E3E3' },
+    slate:   { deep: '#2E4756', main: '#456273', tint: '#E7EEF2', mist: '#F1F4F6', alt: '#E4EDF1' },
+    rust:    { deep: '#8C4212', main: '#B65E22', tint: '#FBEBDF', mist: '#F9F3EC', alt: '#F7E7D9' },
+    cyan:    { deep: '#0B5B66', main: '#127C8B', tint: '#E0F1F3', mist: '#EFF6F7', alt: '#DEEFF1' }
+  };
+  var LADY_POOL = ['rose', 'plum', 'magenta'];
+  var MAN_POOL = ['teal', 'azure', 'indigo', 'emerald', 'amber', 'violet', 'slate', 'rust', 'crimson', 'cyan'];
+
+  /* ================================================================
+     3. Roster (built live from the Members sheet)
+     ================================================================ */
+  var FALLBACK_MEMBERS = [
+    ['Lawal Isaac', 'Secretariat', 'Asst. Head'], ['Paul Sobande', 'Secretariat', 'Head'],
+    ['Gamaliel Adun', 'Leadership', 'Weca Youth Leader'], ['David Adesola', 'C&E', 'Asst. Head'],
+    ['Daniel Dakoru', 'C&E', 'Head'], ['Oluwatosin Deborah', 'Outreach', 'Asst. Head'],
+    ['Odun Alomaja', 'Outreach', 'Head'], ['MiponJesu', 'AOG', 'Asst. Head'],
+    ['Seun Cole', 'AOG', 'Head'], ['Ayodeji Makinde', 'S&P', 'Head'],
+    ['Oluwabunmi Akinboade', 'S&P', 'Asst. Head'], ['Nathaniel Oladunmomi', 'Technology', 'Head'],
+    ['Olumide Olaleye', 'Technology', 'Asst. Head']
+  ];
+  var MEMBERS = [], TEAMS = {}, DEPTS = {};
+  var ALL_TOKENS = ['all mancom members', 'mancom', 'all departments', 'all mancom'];
+  var PRI_RANK = { critical: 0, high: 1, medium: 2, low: 3 };
+  var MONTHS = { january: 0, february: 1, march: 2, april: 3, may: 4, june: 5, july: 6,
+    august: 7, september: 8, october: 9, november: 10, december: 11 };
+  var MON3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  var MONFULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
+    'September', 'October', 'November', 'December'];
+  var UNMATCHED = {};
+
+  function cleanTok(s) { return String(s).toLowerCase().replace(/[^a-z0-9&]/g, ''); }
+
+  function buildRoster(memberRows) {
+    MEMBERS = []; TEAMS = {}; DEPTS = {};
+    var rows = [], cols = { name: 0, dept: 2, pos: 4, gender: -1, colour: -1 };
+    if (memberRows && memberRows.length) {
+      var headerIdx = -1;
+      for (var r = 0; r < Math.min(memberRows.length, 10); r++) {
+        var joined = (memberRows[r] || []).map(function (c) { return String(c || '').toLowerCase(); });
+        if (joined.indexOf('name') >= 0) { headerIdx = r; break; }
+      }
+      if (headerIdx >= 0) {
+        var hdr = memberRows[headerIdx].map(function (c) { return String(c || '').toLowerCase().trim(); });
+        hdr.forEach(function (h, i) {
+          if (h === 'name') cols.name = i;
+          else if (h.indexOf('department') === 0 || h === 'dept') cols.dept = i;
+          else if (h.indexOf('position') === 0 || h === 'role') cols.pos = i;
+          else if (h === 'gender' || h === 'sex') cols.gender = i;
+          else if (h === 'colour' || h === 'color' || h === 'theme') cols.colour = i;
+        });
+        rows = memberRows.slice(headerIdx + 1);
+      } else { rows = memberRows; }
+    }
+    var built = [];
+    rows.forEach(function (row) {
+      if (!row) return;
+      var name = String(row[cols.name] || '').trim();
+      if (!name || name.toLowerCase() === 'name') return;
+      built.push({
+        name: name,
+        dept: String(row[cols.dept] || '').trim() || '—',
+        pos: String(row[cols.pos] || '').trim() || '',
+        gender: cols.gender >= 0 ? String(row[cols.gender] || '').trim().toLowerCase() : '',
+        colour: cols.colour >= 0 ? String(row[cols.colour] || '').trim().toLowerCase() : ''
+      });
+    });
+    if (!built.length) {
+      built = FALLBACK_MEMBERS.map(function (m) {
+        return { name: m[0], dept: m[1], pos: m[2], gender: '', colour: '' };
+      });
+    }
+
+    var ladyN = 0, manN = 0;
+    built.forEach(function (m) {
+      // aliases: every name token of 4+ chars, plus the full name
+      var aliases = [];
+      String(m.name).toLowerCase().split(/\s+/).forEach(function (tok) {
+        tok = tok.replace(/[^a-z0-9]/g, '');
+        if (tok.length >= 4) aliases.push(tok);
+      });
+      aliases.push(String(m.name).toLowerCase().trim());
+      // extra aliases from CONFIG pointing at this person
+      for (var a in CONFIG.EXTRA_ALIASES) {
+        if (cleanTok(CONFIG.EXTRA_ALIASES[a]) === cleanTok(m.name)) aliases.push(a);
+      }
+      // theme
+      var key = CONFIG.THEME_OVERRIDES[m.name] || (THEMES[m.colour] ? m.colour : '');
+      if (!key) {
+        var isLady = /^f/.test(m.gender) ||
+          CONFIG.LADIES.some(function (n) { return cleanTok(n) === cleanTok(m.name); });
+        key = isLady ? LADY_POOL[ladyN++ % LADY_POOL.length] : MAN_POOL[manN++ % MAN_POOL.length];
+      }
+      MEMBERS.push([m.name, m.dept, m.pos, aliases, THEMES[key] || THEMES.teal, key]);
+      var dk = m.dept.toLowerCase().trim();
+      if (dk && dk !== '—') (DEPTS[dk] = DEPTS[dk] || []).push(m.name);
+    });
+    // teams = departments (plus "<dept> team")
+    for (var d in DEPTS) { TEAMS[d] = DEPTS[d]; TEAMS[d + ' team'] = DEPTS[d]; }
+  }
+
+  function wordMatch(alias, low) {
+    return new RegExp('(^|[^a-z0-9])' + alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
+      '([^a-z0-9]|$)').test(low);
+  }
+
+  function matchOne(low, people) {
+    for (var a = 0; a < ALL_TOKENS.length; a++) {
+      if (low === ALL_TOKENS[a] || low.indexOf(ALL_TOKENS[a]) === 0) return 'all';
+    }
+    if (TEAMS[low]) { TEAMS[low].forEach(function (m) { people[m] = 1; }); return true; }
+    var lowNo = low.replace(/\.$/, '').replace(/\s+team$/, '');
+    if (TEAMS[lowNo]) { TEAMS[lowNo].forEach(function (m) { people[m] = 1; }); return true; }
+    for (var ea in CONFIG.EXTRA_ALIASES) {
+      if (wordMatch(ea, low)) {
+        var target = CONFIG.EXTRA_ALIASES[ea];
+        for (var q = 0; q < MEMBERS.length; q++) {
+          if (cleanTok(MEMBERS[q][0]) === cleanTok(target)) { people[MEMBERS[q][0]] = 1; return true; }
+        }
+      }
+    }
+    for (var i = 0; i < MEMBERS.length; i++) {
+      var aliases = MEMBERS[i][3];
+      for (var j = 0; j < aliases.length; j++) {
+        if (wordMatch(aliases[j], low)) { people[MEMBERS[i][0]] = 1; return true; }
+      }
+    }
+    return false;
+  }
+
+  function resolveActionees(raw) {
+    var people = {}, sharedAll = false;
+    var whole = String(raw).trim().toLowerCase();
+    if (TEAMS[whole]) { TEAMS[whole].forEach(function (m) { people[m] = 1; }); return { people: people, sharedAll: false }; }
+    String(raw).split(/[,/]/).forEach(function (part) {
+      var t = part.trim(); if (!t) return;
+      var low = t.toLowerCase().replace(/\(.*?\)/g, '').trim();
+      if (!low) return;
+      var res = matchOne(low, people);
+      if (res === 'all') { sharedAll = true; return; }
+      if (res) return;
+      // try "C&E & AOG" style composites
+      if (/ & /.test(low)) {
+        var any = false;
+        low.split(/ & /).forEach(function (piece) {
+          var r2 = matchOne(piece.trim(), people);
+          if (r2 === 'all') { sharedAll = true; any = true; }
+          else if (r2) any = true;
+        });
+        if (any) return;
+      }
+      UNMATCHED[t] = (UNMATCHED[t] || 0) + 1;
+    });
+    return { people: people, sharedAll: sharedAll };
+  }
+
+  /* ================================================================
+     4. Sheet parsing  (unchanged logic)
+     ================================================================ */
+  function parseSheetRows(rows) {
+    var title = null, section = null, tasks = [], mode = 'active';
+    if (!rows) return { title: null, tasks: [] };
+    for (var r = 0; r < Math.min(rows.length, 400); r++) {
+      var cells = (rows[r] || []).map(function (v) { return v == null ? '' : v; });
+      var strs = cells.map(function (v) { return typeof v === 'number' ? v : String(v).trim(); });
+      var nonEmpty = strs.filter(function (v) { return v !== '' && v != null; });
+      if (!nonEmpty.length) continue;
+      var first = strs[0];
+      if (title === null && typeof first === 'string' && first.toUpperCase().indexOf('MANCOM') >= 0) { title = first; continue; }
+      if (typeof first === 'string') {
+        var up = first.toUpperCase();
+        if (up.indexOf('CLOSED ITEMS') === 0) { mode = 'closed'; continue; }
+        if (up.indexOf('CARRYOVER ITEMS') === 0) { mode = 'carryover'; continue; }
+        if (up.indexOf('STATUS') === 0 && nonEmpty.length === 1) { mode = 'other'; continue; }
+      }
+      if (mode !== 'active') continue;
+      if (typeof first === 'string' && /^\d+\.\s/.test(first) && nonEmpty.length === 1) {
+        section = first.replace(/^\d+\.\s*/, '').trim(); continue;
+      }
+      if (first === 'S/N') continue;
+      var sn = typeof first === 'number' ? first : (/^\d+(\.0)?$/.test(first) ? parseFloat(first) : null);
+      if (sn !== null && cells.length >= 5) {
+        tasks.push({
+          sn: sn, action: String(strs[1] || ''), actioneeRaw: String(strs[2] || ''),
+          dueRaw: cells[3], status: String(strs[4] || ''), remark: String(strs[5] || ''),
+          section: section,
+          row: r + 1 /* ADDED: 1-based sheet row, needed for the status-update write-back */
+        });
+      }
+    }
+    return { title: title, tasks: tasks };
+  }
+
+  function serialToDate(n) { return new Date(Date.UTC(1899, 11, 30) + n * 86400000); }
+  function dateLabel(d) { return d.getUTCDate() + ' ' + MON3[d.getUTCMonth()]; }
+  function isoWeek(d) {
+    var t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    var day = (t.getUTCDay() + 6) % 7;
+    t.setUTCDate(t.getUTCDate() - day + 3);
+    var firstThu = new Date(Date.UTC(t.getUTCFullYear(), 0, 4));
+    var fday = (firstThu.getUTCDay() + 6) % 7;
+    firstThu.setUTCDate(firstThu.getUTCDate() - fday + 3);
+    return 1 + Math.round((t - firstThu) / 604800000);
+  }
+
+  var URGENT = ['urgent', 'immediate', 'asap', 'today', 'before meeting', 'overdue',
+    'deadline may not be met', 'major challenge'];
+
+  function enrich(t, reportDate) {
+    var d = null, label;
+    if (typeof t.dueRaw === 'number' && t.dueRaw > 30000 && t.dueRaw < 60000) {
+      d = serialToDate(t.dueRaw); label = dateLabel(d);
+    } else {
+      var s = String(t.dueRaw == null ? '' : t.dueRaw).trim();
+      var isoM = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+      var dmy = /^(\d{1,2})[-\/ ]([A-Za-z]{3,})[-\/ ](\d{2,4})$/.exec(s);
+      if (isoM) { d = new Date(Date.UTC(+isoM[1], +isoM[2] - 1, +isoM[3])); label = dateLabel(d); }
+      else if (dmy) {
+        var mn = -1, ml = dmy[2].toLowerCase();
+        for (var mk in MONTHS) if (mk.indexOf(ml) === 0 || ml.indexOf(mk.slice(0, 3)) === 0) { mn = MONTHS[mk]; break; }
+        if (mn >= 0) {
+          var yr = +dmy[3]; if (yr < 100) yr += 2000;
+          d = new Date(Date.UTC(yr, mn, +dmy[1])); label = dateLabel(d);
+        } else label = s;
+      }
+      else label = (!s || s.toUpperCase() === 'TBD') ? 'TBD' : s;
+    }
+    t.dueDate = d; t.due = label;
+    var status = t.status.toLowerCase(), text = (t.action + ' ' + t.remark).toLowerCase();
+    var level = 1;
+    if (status === 'closed' || status === 'info') level = 0;
+    else {
+      if (d) {
+        var delta = Math.round((d - reportDate) / 86400000);
+        level = delta < 0 ? 3 : (delta <= 8 ? 2 : 1);
+      }
+      for (var i = 0; i < URGENT.length; i++) if (text.indexOf(URGENT[i]) >= 0) {
+        level = Math.max(level, 2);
+        if (/deadline may not be met|urgent|immediate/.test(text)) level = 3;
+      }
+      if (text.indexOf('carryover') >= 0) level = Math.max(level, 2);
+      if (text.indexOf('before camp') >= 0 && String(t.due).toLowerCase() === 'camp meeting') level = Math.max(level, 2);
+    }
+    t.pri = ['low', 'medium', 'high', 'critical'][level];
+    var rm = t.remark.toLowerCase();
+    if (status === 'closed') t.badge = 'COMPLETED';
+    else if (status === 'info') t.badge = 'NOTED';
+    else if (rm.indexOf('in progress') === 0 || rm.indexOf('work in progress') >= 0 || rm.slice(0, 40).indexOf('in progress') >= 0) t.badge = 'IN PROGRESS';
+    else if (rm.indexOf('waiting') >= 0 || rm.indexOf('awaiting') >= 0 || rm.slice(0, 30).indexOf('pending') >= 0 || rm.indexOf('no response') >= 0) t.badge = 'WAITING';
+    else t.badge = 'OPEN';
+    var ra = resolveActionees(t.actioneeRaw);
+    t.people = ra.people; t.sharedAll = ra.sharedAll;
+  }
+
+  function norm(s) { return String(s).toLowerCase().replace(/[^a-z0-9 ]/g, ''); }
+  function similar(a, b) {
+    var na = norm(a), nb = norm(b);
+    if (na.indexOf(nb) >= 0 || nb.indexOf(na) >= 0) return true;
+    function grams(s) { var g = {}; for (var i = 0; i < s.length - 1; i++) g[s.substr(i, 2)] = (g[s.substr(i, 2)] || 0) + 1; return g; }
+    var ga = grams(na), gb = grams(nb), inter = 0, ta = 0, tb = 0, k;
+    for (k in ga) { ta += ga[k]; if (gb[k]) inter += Math.min(ga[k], gb[k]); }
+    for (k in gb) tb += gb[k];
+    return ta && tb ? (2 * inter) / (ta + tb) > 0.7 : false;
+  }
+  function serItem(t) {
+    return {
+      action: t.action, section: t.section || '', due: t.due,
+      dueTs: t.dueDate ? +t.dueDate : null, badge: t.badge, pri: t.pri,
+      remark: t.remark, owner: t.actioneeRaw,
+      showOwner: Object.keys(t.people).length > 1 || /,|\//.test(t.actioneeRaw),
+      row: t.row, status: t.status /* ADDED: needed by the status-update modal */
+    };
+  }
+
+  function buildData(nowRows, lastRows, memberRows) {
+    UNMATCHED = {};
+    buildRoster(memberRows);
+    var nowParsed = parseSheetRows(nowRows), lastParsed = parseSheetRows(lastRows);
+    if (!nowParsed.tasks.length) throw new Error('No task rows found on the "Now" sheet');
+    var m = /(\d{1,2})(st|nd|rd|th)?\s+(\w+)\s+(\d{4})/.exec(nowParsed.title || '');
+    var reportDate;
+    if (m && MONTHS[m[3].toLowerCase()] !== undefined) {
+      reportDate = new Date(Date.UTC(+m[4], MONTHS[m[3].toLowerCase()], +m[1]));
+    } else {
+      var t0 = new Date(); reportDate = new Date(Date.UTC(t0.getFullYear(), t0.getMonth(), t0.getDate()));
+    }
+    var week = isoWeek(reportDate);
+    nowParsed.tasks.forEach(function (t) { enrich(t, reportDate); });
+    lastParsed.tasks.forEach(function (t) { enrich(t, reportDate); });
+
+    var people = MEMBERS.map(function (mem) {
+      var name = mem[0];
+      var mineNow = nowParsed.tasks.filter(function (t) { return t.people[name]; });
+      var active = mineNow.filter(function (t) { return ['closed', 'info'].indexOf(t.status.toLowerCase()) < 0; });
+      active.sort(function (a, b) {
+        var pr = PRI_RANK[a.pri] - PRI_RANK[b.pri]; if (pr) return pr;
+        var da = a.dueDate ? +a.dueDate : Infinity, db = b.dueDate ? +b.dueDate : Infinity;
+        if (da !== db) return da - db;
+        return a.sn - b.sn;
+      });
+      var closedNow = mineNow.filter(function (t) { return ['closed', 'info'].indexOf(t.status.toLowerCase()) >= 0; });
+      var shared = nowParsed.tasks.filter(function (t) { return t.sharedAll; });
+      var mineLast = lastParsed.tasks.filter(function (t) { return t.people[name]; });
+      var completedLast = mineLast.filter(function (t) { return t.status.toLowerCase() === 'closed'; });
+      var openLast = mineLast.filter(function (t) { return t.status.toLowerCase() === 'open'; });
+      var carried = 0, newCount = 0, dueWeek = 0, overdue = 0, high = 0;
+      active.forEach(function (t) {
+        var isCarried = (t.action + ' ' + t.remark).toLowerCase().indexOf('carryover') >= 0 ||
+          mineLast.some(function (lt) { return similar(t.action, lt.action); });
+        if (isCarried) carried++; else newCount++;
+        if (t.dueDate) {
+          var delta = Math.round((t.dueDate - reportDate) / 86400000);
+          if (delta < 0) overdue++; else if (delta <= 7) dueWeek++;
+        }
+        if (t.pri === 'high' || t.pri === 'critical') high++;
+      });
+      return {
+        name: name, dept: mem[1], position: mem[2], theme: mem[4], themeKey: mem[5],
+        active: active.map(serItem),
+        closedNow: closedNow.map(serItem),
+        shared: shared.map(serItem),
+        accomplishments: completedLast.map(function (t) {
+          var d = serItem(t); d.badge = 'COMPLETED'; d.pri = 'low'; return d;
+        }),
+        lastOpen: openLast.map(serItem),
+        stats: {
+          dueWeek: dueWeek, overdue: overdue, high: high, carried: carried, newCount: newCount,
+          completedLast: completedLast.length, openLast: openLast.length, totalLast: mineLast.length,
+          completion: mineLast.length ? Math.round(100 * completedLast.length / mineLast.length) : null
+        }
+      };
+    });
+    return {
+      week: week,
+      dateStr: reportDate.getUTCDate() + ' ' + MON3[reportDate.getUTCMonth()] + ' ' + reportDate.getUTCFullYear(),
+      dateLong: reportDate.getUTCDate() + ' ' + MONFULL[reportDate.getUTCMonth()] + ' ' + reportDate.getUTCFullYear(),
+      people: people,
+      unmatched: Object.keys(UNMATCHED)
+    };
+  }
+
+  /* ================================================================
+     5. Live loading from the Apps Script Web App
+     ================================================================ */
+  function jsonp(url, cb, errCb) {
+    var name = 'mancomCB' + Date.now();
+    var s = document.createElement('script');
+    var timer = setTimeout(function () { cleanup(); errCb(new Error('Live request timed out')); }, 20000);
+    function cleanup() { clearTimeout(timer); try { delete window[name]; } catch (e) { window[name] = undefined; } if (s.parentNode) s.parentNode.removeChild(s); }
+    window[name] = function (data) { cleanup(); cb(data); };
+    s.onerror = function () { cleanup(); errCb(new Error('Could not reach the Google Sheet service')); };
+    s.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'callback=' + name + '&t=' + Date.now();
+    document.body.appendChild(s);
+  }
+
+  function fetchLive(cb, errCb) {
+    var url = CONFIG.API_URL;
+    if (!url || url.indexOf('PASTE_') === 0) { errCb(new Error('No API_URL configured')); return; }
+    if (typeof fetch === 'function') {
+      fetch(url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now())
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(cb)
+        .catch(function () { jsonp(url, cb, errCb); });   // CORS/redirect fallback
+    } else { jsonp(url, cb, errCb); }
+  }
+
+  /* ================================================================
+     6. UI
+     ================================================================ */
+  var DATA = null, SOURCE = 'snapshot';
+  var grid = document.getElementById('grid');
+  var statusEl = document.getElementById('status');
+  var liveEl = document.getElementById('live');
+
+  function setStatus(txt, cls) {
+    statusEl.textContent = txt;
+    statusEl.className = cls || '';
+  }
+  function stamp() {
+    var d = new Date();
+    return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+  }
+
+  function svgToPng(svgStr, w, h, scale, cb) {
+    var blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var img = new Image();
+    img.onload = function () {
+      var canvas = document.createElement('canvas');
+      canvas.width = Math.round(w * scale); canvas.height = Math.round(h * scale);
+      var ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(cb, 'image/png');
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); alert('PNG export failed in this browser.'); };
+    img.src = url;
+  }
+  function download(blob, filename) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 800);
+  }
+
+  /* ================================================================
+     ADDED — Update-status modal + write-back POST (task 1)
+     ================================================================ */
+  var updOverlay = document.getElementById('upd-overlay');
+  var updList = document.getElementById('upd-list');
+  var updTitle = document.getElementById('upd-title');
+
+  function postStatusUpdate(row, newStatus, cb) {
+    // Fire-and-forget: Apps Script doesn't send CORS headers on POST, so a
+    // cross-origin browser can't read the response body. mode:'no-cors' still
+    // lets the request reach the server and write the cell; we just can't see
+    // the JSON reply, so we optimistically report success and let the next
+    // live refresh confirm it landed.
+    try {
+      fetch(CONFIG.API_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ sheet: 'Now', row: row, status: newStatus })
+      }).then(function () { cb(true); }).catch(function () { cb(false); });
+    } catch (e) { cb(false); }
+  }
+
+  function openUpdateModal(person) {
+    updTitle.textContent = 'Update tasks — ' + person.name;
+    updList.innerHTML = '';
+    if (!person.active.length) {
+      updList.innerHTML = '<div class="upd-sub">No active tasks for ' + person.name + '.</div>';
+    }
+    person.active.forEach(function (t) {
+      var row = document.createElement('div');
+      row.className = 'upd-row';
+      var dot = document.createElement('i');
+      dot.className = 'upd-dot';
+      dot.style.background = statusColor(t.status);
+      var text = document.createElement('div');
+      text.className = 'upd-action';
+      text.textContent = t.action;
+      var sel = document.createElement('select');
+      STATUS_OPTIONS.forEach(function (o) {
+        var opt = document.createElement('option');
+        opt.value = o.value; opt.textContent = o.label;
+        if (o.value.toLowerCase() === String(t.status).toLowerCase()) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      var save = document.createElement('button');
+      save.className = 'upd-save';
+      save.textContent = 'Save';
+      save.onclick = function () {
+        if (!t.row) { save.textContent = 'No row #'; return; }
+        save.disabled = true; save.textContent = '…';
+        var newStatus = sel.value;
+        postStatusUpdate(t.row, newStatus, function () {
+          t.status = newStatus;
+          dot.style.background = statusColor(newStatus);
+          save.disabled = false; save.textContent = 'Saved ✓';
+          setTimeout(function () { save.textContent = 'Save'; }, 1500);
+          setTimeout(function () { loadLive(true); }, 2500); // confirm against the live sheet
+        });
+      };
+      row.appendChild(dot); row.appendChild(text); row.appendChild(sel); row.appendChild(save);
+      updList.appendChild(row);
+    });
+    updOverlay.classList.add('open');
+  }
+  document.getElementById('upd-close').onclick = function () { updOverlay.classList.remove('open'); };
+  updOverlay.onclick = function (e) { if (e.target === updOverlay) updOverlay.classList.remove('open'); };
+
+  function render() {
+    if (!DATA) return;
+    grid.innerHTML = '';
+    DATA.people.forEach(function (p) {
+      var out = window.CardRenderer.renderCard(p, DATA);
+      var cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.style.borderTop = '4px solid ' + p.theme.main;
+      var bar = document.createElement('div');
+      bar.className = 'cellbar';
+      var label = document.createElement('span');
+      label.innerHTML = '<i class="dot" style="background:' + p.theme.main + '"></i>' +
+        p.name + ' — ' + p.active.length + ' active';
+      var btns = document.createElement('div');
+      btns.className = 'btns';
+      var btn = document.createElement('button');
+      btn.textContent = 'Card PNG';
+      btn.style.background = p.theme.deep;
+      btn.onclick = function () {
+        btn.disabled = true; btn.textContent = 'Rendering…';
+        svgToPng(out.svg, out.width, out.height, 2, function (blob) {
+          download(blob, p.name.toUpperCase() + ' — WK' + DATA.week + '.png');
+          btn.disabled = false; btn.textContent = 'Card PNG';
+        });
+      };
+      var pbtn = document.createElement('button');
+      pbtn.className = 'ghost'; pbtn.textContent = 'Passport';
+      pbtn.style.color = p.theme.deep; pbtn.style.borderColor = p.theme.deep;
+      pbtn.onclick = function () {
+        var htmlStr = window.PassportRenderer.renderPassport(p, DATA);
+        window.open(URL.createObjectURL(new Blob([htmlStr], { type: 'text/html' })), '_blank');
+      };
+      var dbtn = document.createElement('button');
+      dbtn.className = 'ghost'; dbtn.textContent = '⇩ HTML';
+      dbtn.style.color = p.theme.deep; dbtn.style.borderColor = p.theme.deep;
+      dbtn.title = 'Download the full passport as an HTML file';
+      dbtn.onclick = function () {
+        var htmlStr = window.PassportRenderer.renderPassport(p, DATA);
+        download(new Blob([htmlStr], { type: 'text/html' }), p.name.toUpperCase() + '.html');
+      };
+      var ubtn = document.createElement('button'); // ADDED: task-status Update button
+      ubtn.className = 'ghost'; ubtn.textContent = 'Update';
+      ubtn.style.color = p.theme.deep; ubtn.style.borderColor = p.theme.deep;
+      ubtn.title = 'Update this person\u2019s task statuses';
+      ubtn.onclick = function () { openUpdateModal(p); };
+      btns.appendChild(ubtn);
+      btns.appendChild(btn); btns.appendChild(pbtn); btns.appendChild(dbtn);
+      bar.appendChild(label); bar.appendChild(btns);
+      var frame = document.createElement('div');
+      frame.className = 'frame';
+      frame.innerHTML = out.svg;
+      cell.appendChild(bar); cell.appendChild(frame);
+      grid.appendChild(cell);
+    });
+    var warn = document.getElementById('warn');
+    if (DATA.unmatched && DATA.unmatched.length) {
+      warn.style.display = '';
+      warn.textContent = '⚠ ' + DATA.unmatched.length + ' actionee name(s) did not match anyone: ' +
+        DATA.unmatched.join(' · ') + '  — add them to the Members sheet or to EXTRA_ALIASES.';
+    } else { warn.style.display = 'none'; }
+  }
+
+  function applyData(d, source) {
+    DATA = d; SOURCE = source;
+    render();
+    var tag = source === 'live' ? 'LIVE' : (source === 'file' ? 'FILE' : 'SNAPSHOT');
+    liveEl.textContent = tag;
+    liveEl.className = 'pill ' + (source === 'live' ? 'ok' : 'warnpill');
+    setStatus('Week ' + d.week + ' · ' + d.dateLong + ' · ' + d.people.length + ' members · updated ' + stamp());
+  }
+
+  function loadLive(silent) {
+    if (!silent) setStatus('Fetching the live Google Sheet…');
+    fetchLive(function (res) {
+      try {
+        if (!res || res.ok === false) throw new Error(res && res.error ? res.error : 'Bad response');
+        applyData(buildData(res.now, res.last, res.members), 'live');
+      } catch (e) { setStatus('⚠ ' + e.message, 'err'); }
+    }, function (err) {
+      if (!DATA) {
+        try { applyData(buildData(null, null, null), 'snapshot'); } catch (e) { /* ignore */ }
+      }
+      setStatus('⚠ Live sheet unavailable (' + err.message + ') — showing last snapshot', 'err');
+    });
+  }
+
+  /* -------- offline .xlsx fallback (unchanged reader) -------- */
+  function u16(b, o) { return b[o] | (b[o + 1] << 8); }
+  function u32(b, o) { return (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)) >>> 0; }
+  async function inflateRaw(bytes) {
+    var ds = new DecompressionStream('deflate-raw');
+    var stream = new Blob([bytes]).stream().pipeThrough(ds);
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+  async function unzip(arrayBuffer) {
+    var b = new Uint8Array(arrayBuffer), eocd = -1;
+    for (var i = b.length - 22; i >= Math.max(0, b.length - 66000); i--) {
+      if (u32(b, i) === 0x06054b50) { eocd = i; break; }
+    }
+    if (eocd < 0) throw new Error('Not a valid .xlsx (zip) file');
+    var count = u16(b, eocd + 10), cdOff = u32(b, eocd + 16), files = {}, p = cdOff;
+    for (var n = 0; n < count; n++) {
+      if (u32(b, p) !== 0x02014b50) break;
+      var method = u16(b, p + 10), csize = u32(b, p + 20);
+      var nlen = u16(b, p + 28), elen = u16(b, p + 30), clen = u16(b, p + 32), lho = u32(b, p + 42);
+      files[new TextDecoder().decode(b.subarray(p + 46, p + 46 + nlen))] = { method: method, csize: csize, lho: lho };
+      p += 46 + nlen + elen + clen;
+    }
+    async function read(name) {
+      var f = files[name]; if (!f) return null;
+      var q = f.lho, nl = u16(b, q + 26), el = u16(b, q + 28);
+      var data = b.subarray(q + 30 + nl + el, q + 30 + nl + el + f.csize);
+      return new TextDecoder().decode(f.method === 0 ? data : await inflateRaw(data));
+    }
+    return { read: read, names: Object.keys(files) };
+  }
+  function colIndex(ref) {
+    var m = /^([A-Z]+)/.exec(ref); if (!m) return 0;
+    var c = 0; for (var i = 0; i < m[1].length; i++) c = c * 26 + (m[1].charCodeAt(i) - 64);
+    return c - 1;
+  }
+  async function readXlsx(arrayBuffer) {
+    var z = await unzip(arrayBuffer), parser = new DOMParser();
+    var wbXml = parser.parseFromString(await z.read('xl/workbook.xml'), 'application/xml');
+    var relsXml = parser.parseFromString(await z.read('xl/_rels/workbook.xml.rels'), 'application/xml');
+    var rels = {};
+    Array.prototype.forEach.call(relsXml.getElementsByTagName('*'), function (r) {
+      if (r.localName === 'Relationship') rels[r.getAttribute('Id')] = r.getAttribute('Target');
+    });
+    var sheets = {};
+    Array.prototype.forEach.call(wbXml.getElementsByTagName('*'), function (s) {
+      if (s.localName !== 'sheet') return;
+      var rid = s.getAttribute('r:id') || s.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
+      var target = rels[rid]; if (!target) return;
+      if (target.indexOf('/') === 0) target = target.slice(1); else if (target.indexOf('xl/') !== 0) target = 'xl/' + target;
+      sheets[s.getAttribute('name')] = target;
+    });
+    var sstRaw = await z.read('xl/sharedStrings.xml'), sst = [];
+    if (sstRaw) {
+      var sstXml = parser.parseFromString(sstRaw, 'application/xml');
+      Array.prototype.forEach.call(sstXml.getElementsByTagName('*'), function (si) {
+        if (si.localName !== 'si') return;
+        var txt = '';
+        Array.prototype.forEach.call(si.getElementsByTagName('*'), function (t) {
+          if (t.localName === 't') txt += t.textContent;
+        });
+        sst.push(txt);
+      });
+    }
+    async function rows(sheetName) {
+      var path = sheets[sheetName]; if (!path) return null;
+      var xml = parser.parseFromString(await z.read(path), 'application/xml'), out = [];
+      Array.prototype.forEach.call(xml.getElementsByTagName('*'), function (row) {
+        if (row.localName !== 'row') return;
+        var arr = [];
+        Array.prototype.forEach.call(row.childNodes, function (c) {
+          if (c.localName !== 'c') return;
+          var ci = colIndex(c.getAttribute('r') || ''), t = c.getAttribute('t'), v = null;
+          if (t === 'inlineStr') v = c.textContent;
+          else {
+            for (var k = 0; k < c.childNodes.length; k++) {
+              if (c.childNodes[k].localName === 'v') { v = c.childNodes[k].textContent; break; }
+            }
+            if (v != null) {
+              if (t === 's') v = sst[parseInt(v, 10)];
+              else if (t !== 'str' && t !== 'b') { var num = parseFloat(v); if (!isNaN(num)) v = num; }
+            }
+          }
+          arr[ci] = v;
+        });
+        out.push(arr);
+      });
+      return out;
+    }
+    return { rows: rows, sheetNames: Object.keys(sheets) };
+  }
+  async function handleFile(file) {
+    setStatus('Reading ' + file.name + '…');
+    try {
+      if (typeof DecompressionStream === 'undefined')
+        throw new Error('This browser cannot unpack .xlsx — use Chrome, Edge, or Safari 16.4+');
+      var wb = await readXlsx(await file.arrayBuffer());
+      var nowName = wb.sheetNames.indexOf('Now') >= 0 ? 'Now' :
+        (wb.sheetNames.indexOf('Sheet7') >= 0 ? 'Sheet7' : null);
+      if (!nowName || wb.sheetNames.indexOf('Last') < 0)
+        throw new Error('Workbook needs a "Now" (or Sheet7) and a "Last" sheet. Found: ' + wb.sheetNames.join(', '));
+      var members = wb.sheetNames.indexOf('Members') >= 0 ? await wb.rows('Members') : null;
+      applyData(buildData(await wb.rows(nowName), await wb.rows('Last'), members), 'file');
+    } catch (e) { setStatus('⚠ ' + e.message, 'err'); }
+  }
+
+  /* -------- wiring -------- */
+  document.getElementById('dl-passports').onclick = function () {
+    DATA.people.forEach(function (p, i) {
+      setTimeout(function () {
+        download(new Blob([window.PassportRenderer.renderPassport(p, DATA)], { type: 'text/html' }),
+          p.name.toUpperCase() + '.html');
+      }, i * 350);
+    });
+  };
+  document.getElementById('dl-all').onclick = function () {
+    var i = 0;
+    (function next() {
+      if (i >= DATA.people.length) return;
+      var p = DATA.people[i++];
+      var out = window.CardRenderer.renderCard(p, DATA);
+      svgToPng(out.svg, out.width, out.height, 2, function (blob) {
+        download(blob, p.name.toUpperCase() + ' — WK' + DATA.week + '.png');
+        setTimeout(next, 500);
+      });
+    })();
+  };
+  document.getElementById('refresh').onclick = function () { loadLive(false); };
+
+  var drop = document.getElementById('drop'), input = document.getElementById('file');
+  drop.onclick = function () { input.click(); };
+  input.onchange = function () { if (input.files[0]) handleFile(input.files[0]); };
+  drop.ondragover = function (e) { e.preventDefault(); drop.classList.add('over'); };
+  drop.ondragleave = function () { drop.classList.remove('over'); };
+  drop.ondrop = function (e) {
+    e.preventDefault(); drop.classList.remove('over');
+    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  };
+
+  /* -------- boot -------- */
+  var SNAP = window.EMBEDDED_ROWS || null;
+  if (SNAP) {
+    try { applyData(buildData(SNAP.now, SNAP.last, SNAP.members), 'snapshot'); } catch (e) { /* ignore */ }
+  }
+  loadLive(!!SNAP);
+  if (CONFIG.REFRESH_MINUTES > 0) {
+    setInterval(function () { loadLive(true); }, CONFIG.REFRESH_MINUTES * 60000);
+  }
+
+  window.__pipeline = { buildData: buildData, parseSheetRows: parseSheetRows, THEMES: THEMES, CONFIG: CONFIG };
+})();
+</script>
+</body>
+</html>
