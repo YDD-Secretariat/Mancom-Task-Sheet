@@ -90,6 +90,31 @@
     body { background:#fff; }
     .dept { box-shadow:none; break-inside:avoid; }
   }
+
+  /* ==== ADDED: mobile quick-jump nav to departments (task 2) ==== */
+  #deptnav { display:none; }
+  @media (max-width:760px) {
+    #deptnav { display:flex; gap:8px; overflow-x:auto; -webkit-overflow-scrolling:touch;
+      position:sticky; top:0; z-index:8; background:#EDF1F0; padding:10px 14px;
+      border-bottom:1px solid var(--line); }
+    #deptnav a { flex:none; font-size:11.5px; font-weight:800; letter-spacing:.3px;
+      color:#fff; padding:7px 12px; border-radius:999px; text-decoration:none; white-space:nowrap; }
+    .dept { scroll-margin-top:52px; } /* keeps the jumped-to section clear of the sticky nav */
+  }
+
+  /* ==== ADDED: per-item status Update control (task 1, mirrors index.html) ==== */
+  .item-foot { position:relative; }
+  .upd-btn { margin-left:auto; border:1.5px solid var(--line); background:#fff; color:var(--sub);
+    font-size:10.5px; font-weight:800; padding:5px 9px; border-radius:999px; cursor:pointer; }
+  .upd-btn:hover { border-color:var(--deep); color:var(--deep); }
+  .upd-pop { display:none; position:absolute; right:0; bottom:calc(100% + 8px); z-index:5;
+    background:#fff; border:1px solid var(--line); border-radius:12px; padding:10px;
+    box-shadow:0 10px 30px rgba(16,33,31,.18); width:190px; }
+  .upd-pop.open { display:block; }
+  .upd-pop select { width:100%; font-size:12.5px; padding:7px 8px; border-radius:8px;
+    border:1px solid var(--line); margin-bottom:8px; }
+  .upd-pop button { width:100%; border:none; border-radius:8px; padding:7px 0; font-size:11.5px;
+    font-weight:800; color:#fff; background:var(--deep); cursor:pointer; }
 </style>
 </head>
 <body>
@@ -109,6 +134,8 @@
   </div>
 
   <div id="warn"></div>
+  <!-- ADDED: mobile-only quick-jump chips to each department (task 2) -->
+  <nav id="deptnav"></nav>
   <div id="summary"></div>
   <div id="wrap"></div>
 
@@ -160,6 +187,16 @@
     rust:    { deep: '#8C4212', main: '#B65E22', tint: '#FBEBDF', mist: '#F9F3EC', alt: '#F7E7D9' },
     cyan:    { deep: '#0B5B66', main: '#127C8B', tint: '#E0F1F3', mist: '#EFF6F7', alt: '#DEEFF1' }
   };
+  // ADDED: status options for the Update control. value = text written to the sheet
+  // (matches the keywords parseStatus() already looks for), label = shown to the user.
+  var STATUS_OPTIONS = [
+    { value: 'Open', label: 'Open' },
+    { value: 'In Progress', label: 'In Progress' },
+    { value: 'Waiting', label: 'Waiting' },
+    { value: 'Blocked', label: 'Blocked' },
+    { value: 'Closed', label: 'Closed' },
+    { value: 'Noted', label: 'Noted' }
+  ];
   var PRI_COLOR = { critical: '#C6403C', high: '#D97E0F', medium: '#C9A227', low: '#35915F' };
   var PRI_RANK = { critical: 0, high: 1, medium: 2, low: 3 };
   var BADGE = {
@@ -265,7 +302,8 @@
         timeline: tl.label, timelineTs: tl.ts,
         priority: parsePriority(row[cols.priority]),
         status: parseStatus(row[cols.status]),
-        remarks: String(row[cols.remarks] || '').trim()
+        remarks: String(row[cols.remarks] || '').trim(),
+        row: r + 1 /* ADDED: 1-based sheet row, needed for the status-update write-back */
       });
     }
     return { items: items, unmatched: Object.keys(unmatched) };
@@ -291,6 +329,19 @@
     var pc = PRI_COLOR[it.priority];
     var b = BADGE[it.status] || BADGE['OPEN'];
     var remarks = it.remarks ? '<p class="remark">' + esc(it.remarks) + '</p>' : '';
+    // ADDED: Update button + popover (task 1) — options come from STATUS_OPTIONS,
+    // pre-selects the option matching the item's current parsed status.
+    var optsHtml = STATUS_OPTIONS.map(function (o) {
+      return '<option value="' + esc(o.value) + '"' +
+        (parseStatus(o.value) === it.status ? ' selected' : '') + '>' + esc(o.label) + '</option>';
+    }).join('');
+    var updHtml = it.row ? (
+      '<button type="button" class="upd-btn" data-updbtn="' + it.row + '">Update</button>' +
+      '<div class="upd-pop" data-updpop="' + it.row + '">' +
+        '<select data-updsel="' + it.row + '">' + optsHtml + '</select>' +
+        '<button type="button" data-updsave="' + it.row + '">Save</button>' +
+      '</div>'
+    ) : '';
     return '<div class="item" style="--pc:' + pc + '">' +
       '<div class="item-strip"></div>' +
       '<div class="item-body">' +
@@ -302,6 +353,7 @@
         '<div class="item-foot">' +
           '<span class="tl"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>' + esc(it.timeline) + '</span>' +
           '<span class="pri"><i style="background:' + pc + '"></i>' + it.priority.charAt(0).toUpperCase() + it.priority.slice(1) + '</span>' +
+          updHtml +
         '</div>' +
       '</div></div>';
   }
@@ -317,7 +369,7 @@
       var ta = a.timelineTs || Infinity, tb = b.timelineTs || Infinity;
       return ta - tb;
     });
-    return '<section class="dept" style="border-top-color:' + theme.main + '">' +
+    return '<section class="dept" id="dept-' + esc(group.key) + '" style="border-top-color:' + theme.main + '">' +
       '<header class="dept-head" style="background:' + theme.tint + '">' +
         '<div class="dept-title"><i class="dot" style="background:' + theme.main + '"></i><h3>' + esc(group.label) + '</h3></div>' +
         '<div class="dept-meta">' +
@@ -384,9 +436,61 @@
   }
   function setStatus(txt, cls) { statusEl.textContent = txt; statusEl.className = cls || ''; }
 
+  // ADDED: builds the mobile-only sticky chip strip so a specific department's
+  // items can be reached without scrolling past every other section (task 2).
+  var deptnavEl = document.getElementById('deptnav');
+  function renderDeptNav(groups) {
+    deptnavEl.innerHTML = groups.map(function (g) {
+      var theme = themeFor(g.key);
+      return '<a href="#dept-' + esc(g.key) + '" style="background:' + theme.deep + '">' +
+        esc(g.label) + '</a>';
+    }).join('');
+  }
+
+  // ADDED: fire-and-forget write-back for the per-item Update control (task 1).
+  // Same CORS caveat as index.html's version — see doPost()'s comment in code.js.
+  function postStatusUpdate(row, newStatus, cb) {
+    try {
+      fetch(CONFIG.API_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ sheet: 'Strategy', row: row, status: newStatus })
+      }).then(function () { cb(true); }).catch(function () { cb(false); });
+    } catch (e) { cb(false); }
+  }
+
+  // ADDED: single delegated listener handles every item's Update button/popover/save,
+  // so nothing needs re-wiring each time wrap.innerHTML is replaced.
+  wrap.addEventListener('click', function (e) {
+    var openBtn = e.target.closest('[data-updbtn]');
+    var saveBtn = e.target.closest('[data-updsave]');
+    if (openBtn) {
+      var pop = wrap.querySelector('[data-updpop="' + openBtn.getAttribute('data-updbtn') + '"]');
+      var wasOpen = pop.classList.contains('open');
+      wrap.querySelectorAll('.upd-pop.open').forEach(function (p) { p.classList.remove('open'); });
+      if (!wasOpen) pop.classList.add('open');
+      return;
+    }
+    if (saveBtn) {
+      var id = saveBtn.getAttribute('data-updsave');
+      var sel = wrap.querySelector('[data-updsel="' + id + '"]');
+      saveBtn.disabled = true; saveBtn.textContent = '…';
+      postStatusUpdate(parseInt(id, 10), sel.value, function () {
+        saveBtn.textContent = 'Saved ✓';
+        setTimeout(function () { loadLive(true); }, 2500); // re-fetch to confirm + re-render
+      });
+      return;
+    }
+    if (!e.target.closest('.upd-pop')) {
+      wrap.querySelectorAll('.upd-pop.open').forEach(function (p) { p.classList.remove('open'); });
+    }
+  });
+
   function render(items, source) {
     var groups = groupByDept(items);
     summaryEl.innerHTML = summaryBar(items);
+    renderDeptNav(groups); // ADDED
     wrap.innerHTML = groups.length
       ? groups.map(deptCard).join('')
       : '<p class="quiet" style="text-align:center;padding:60px 0;">No strategic items found yet. Add rows to the "Strategy" sheet — columns: Strategic Item, Department, Timeline, Priority, Status, Remarks.</p>';
