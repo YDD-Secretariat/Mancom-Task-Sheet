@@ -81,6 +81,47 @@
   .pri i { width:8px; height:8px; border-radius:50%; display:inline-block; }
   .quiet { color:var(--sub); }
 
+  /* ===== NEW: Update button + status modal ===== */
+  .upd-btn { margin-left:auto; border:1.5px solid var(--deep); background:#fff; color:var(--deep);
+    font-size:11px; font-weight:800; letter-spacing:.4px; padding:6px 12px; border-radius:999px;
+    cursor:pointer; }
+  .upd-btn:hover { background:var(--tint); }
+  .upd-btn:active { transform:scale(.97); }
+  #updOverlay { display:none; position:fixed; inset:0; background:rgba(16,33,31,.45);
+    z-index:50; align-items:flex-end; justify-content:center; }
+  #updOverlay.open { display:flex; }
+  #updSheet { background:#fff; width:100%; max-width:460px; border-radius:20px 20px 0 0;
+    padding:22px 22px calc(22px + env(safe-area-inset-bottom,0px)); box-shadow:0 -10px 34px rgba(16,33,31,.22); }
+  @media (min-width:600px) {
+    #updOverlay { align-items:center; }
+    #updSheet { border-radius:20px; }
+  }
+  #updSheet h4 { font-size:13px; letter-spacing:1.2px; text-transform:uppercase; color:var(--sub); margin-bottom:2px; }
+  #updSheet p.updItem { font-size:15px; font-weight:700; margin-bottom:16px; line-height:1.35; }
+  .updOpt { display:block; width:100%; text-align:left; border:1.5px solid var(--line); background:#fff;
+    border-radius:12px; padding:12px 16px; font-size:14px; font-weight:700; margin-bottom:8px; cursor:pointer; }
+  .updOpt:hover { background:var(--mist); }
+  .updOpt.active { border-color:var(--deep); background:var(--tint); }
+  #updCancel { display:block; width:100%; text-align:center; border:none; background:none;
+    color:var(--sub); font-size:13px; font-weight:700; padding:10px; margin-top:6px; cursor:pointer; }
+  #updMsg { font-size:12px; margin-top:6px; min-height:16px; }
+  #updMsg.err { color:#C6403C; }
+  #updMsg.ok { color:#0A5A4E; }
+
+  /* ===== NEW: mobile department quick-jump bar ===== */
+  #deptJump { display:none; }
+  @media (max-width:760px) {
+    #deptJump { display:flex; gap:8px; overflow-x:auto; padding:10px 16px; margin:0 auto;
+      max-width:1080px; -webkit-overflow-scrolling:touch; }
+    #deptJump a { flex:none; font-size:11.5px; font-weight:800; color:var(--deep);
+      background:#fff; border:1.5px solid var(--line); padding:7px 13px; border-radius:999px;
+      text-decoration:none; white-space:nowrap; }
+    #backTop { display:none; position:fixed; right:16px; bottom:16px; z-index:8; width:46px; height:46px;
+      border-radius:50%; background:var(--deep); color:#fff; border:none; font-size:18px;
+      box-shadow:0 8px 20px rgba(16,33,31,.25); }
+    #backTop.show { display:block; }
+  }
+
   @media (max-width:760px) {
     #summary { grid-template-columns:repeat(2,1fr); }
     .page-head h1 { font-size:28px; }
@@ -90,31 +131,6 @@
     body { background:#fff; }
     .dept { box-shadow:none; break-inside:avoid; }
   }
-
-  /* ==== ADDED: mobile quick-jump nav to departments (task 2) ==== */
-  #deptnav { display:none; }
-  @media (max-width:760px) {
-    #deptnav { display:flex; gap:8px; overflow-x:auto; -webkit-overflow-scrolling:touch;
-      position:sticky; top:0; z-index:8; background:#EDF1F0; padding:10px 14px;
-      border-bottom:1px solid var(--line); }
-    #deptnav a { flex:none; font-size:11.5px; font-weight:800; letter-spacing:.3px;
-      color:#fff; padding:7px 12px; border-radius:999px; text-decoration:none; white-space:nowrap; }
-    .dept { scroll-margin-top:52px; } /* keeps the jumped-to section clear of the sticky nav */
-  }
-
-  /* ==== ADDED: per-item status Update control (task 1, mirrors index.html) ==== */
-  .item-foot { position:relative; }
-  .upd-btn { margin-left:auto; border:1.5px solid var(--line); background:#fff; color:var(--sub);
-    font-size:10.5px; font-weight:800; padding:5px 9px; border-radius:999px; cursor:pointer; }
-  .upd-btn:hover { border-color:var(--deep); color:var(--deep); }
-  .upd-pop { display:none; position:absolute; right:0; bottom:calc(100% + 8px); z-index:5;
-    background:#fff; border:1px solid var(--line); border-radius:12px; padding:10px;
-    box-shadow:0 10px 30px rgba(16,33,31,.18); width:190px; }
-  .upd-pop.open { display:block; }
-  .upd-pop select { width:100%; font-size:12.5px; padding:7px 8px; border-radius:8px;
-    border:1px solid var(--line); margin-bottom:8px; }
-  .upd-pop button { width:100%; border:none; border-radius:8px; padding:7px 0; font-size:11.5px;
-    font-weight:800; color:#fff; background:var(--deep); cursor:pointer; }
 </style>
 </head>
 <body>
@@ -133,11 +149,22 @@
     <p>Grouped by department · pulled live from the "Strategy" sheet</p>
   </div>
 
+  <div id="deptJump"></div>
   <div id="warn"></div>
-  <!-- ADDED: mobile-only quick-jump chips to each department (task 2) -->
-  <nav id="deptnav"></nav>
   <div id="summary"></div>
   <div id="wrap"></div>
+  <button id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Back to top">&#8593;</button>
+
+  <!-- NEW: status update modal, shared by every item's Update button -->
+  <div id="updOverlay" onclick="if(event.target===this) window.__closeUpdate()">
+    <div id="updSheet">
+      <h4>Update Status</h4>
+      <p class="updItem" id="updItemName"></p>
+      <div id="updOptions"></div>
+      <div id="updMsg"></div>
+      <button id="updCancel" onclick="window.__closeUpdate()">Cancel</button>
+    </div>
+  </div>
 
   <script>/* MANCOM Strategic Agenda — grouped-by-department live view.
    Reads the same Apps Script feed as the Task view, but from the "Strategy" sheet. */
@@ -187,16 +214,6 @@
     rust:    { deep: '#8C4212', main: '#B65E22', tint: '#FBEBDF', mist: '#F9F3EC', alt: '#F7E7D9' },
     cyan:    { deep: '#0B5B66', main: '#127C8B', tint: '#E0F1F3', mist: '#EFF6F7', alt: '#DEEFF1' }
   };
-  // ADDED: status options for the Update control. value = text written to the sheet
-  // (matches the keywords parseStatus() already looks for), label = shown to the user.
-  var STATUS_OPTIONS = [
-    { value: 'Open', label: 'Open' },
-    { value: 'In Progress', label: 'In Progress' },
-    { value: 'Waiting', label: 'Waiting' },
-    { value: 'Blocked', label: 'Blocked' },
-    { value: 'Closed', label: 'Closed' },
-    { value: 'Noted', label: 'Noted' }
-  ];
   var PRI_COLOR = { critical: '#C6403C', high: '#D97E0F', medium: '#C9A227', low: '#35915F' };
   var PRI_RANK = { critical: 0, high: 1, medium: 2, low: 3 };
   var BADGE = {
@@ -303,7 +320,10 @@
         priority: parsePriority(row[cols.priority]),
         status: parseStatus(row[cols.status]),
         remarks: String(row[cols.remarks] || '').trim(),
-        row: r + 1 /* ADDED: 1-based sheet row, needed for the status-update write-back */
+        /* NEW — additive: lets the "Update" button write back to the exact cell.
+           readSheet() always starts at row 1, so the sheet row is just (array index + 1). */
+        sheetRow: r + 1,
+        statusCol: cols.status + 1
       });
     }
     return { items: items, unmatched: Object.keys(unmatched) };
@@ -329,31 +349,18 @@
     var pc = PRI_COLOR[it.priority];
     var b = BADGE[it.status] || BADGE['OPEN'];
     var remarks = it.remarks ? '<p class="remark">' + esc(it.remarks) + '</p>' : '';
-    // ADDED: Update button + popover (task 1) — options come from STATUS_OPTIONS,
-    // pre-selects the option matching the item's current parsed status.
-    var optsHtml = STATUS_OPTIONS.map(function (o) {
-      return '<option value="' + esc(o.value) + '"' +
-        (parseStatus(o.value) === it.status ? ' selected' : '') + '>' + esc(o.label) + '</option>';
-    }).join('');
-    var updHtml = it.row ? (
-      '<button type="button" class="upd-btn" data-updbtn="' + it.row + '">Update</button>' +
-      '<div class="upd-pop" data-updpop="' + it.row + '">' +
-        '<select data-updsel="' + it.row + '">' + optsHtml + '</select>' +
-        '<button type="button" data-updsave="' + it.row + '">Save</button>' +
-      '</div>'
-    ) : '';
-    return '<div class="item" style="--pc:' + pc + '">' +
+    return '<div class="item" id="item-row-' + it.sheetRow + '" style="--pc:' + pc + '">' +
       '<div class="item-strip"></div>' +
       '<div class="item-body">' +
         '<div class="item-top">' +
           '<h4>' + esc(it.item) + '</h4>' +
-          '<span class="badge" style="color:' + b[0] + ';background:' + b[1] + '">' + esc(it.status) + '</span>' +
+          '<span class="badge" id="item-badge-' + it.sheetRow + '" style="color:' + b[0] + ';background:' + b[1] + '">' + esc(it.status) + '</span>' +
         '</div>' +
         remarks +
         '<div class="item-foot">' +
           '<span class="tl"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>' + esc(it.timeline) + '</span>' +
           '<span class="pri"><i style="background:' + pc + '"></i>' + it.priority.charAt(0).toUpperCase() + it.priority.slice(1) + '</span>' +
-          updHtml +
+          '<button type="button" class="upd-btn" onclick="window.__openUpdate(' + it.sheetRow + ')">Update</button>' +
         '</div>' +
       '</div></div>';
   }
@@ -369,7 +376,7 @@
       var ta = a.timelineTs || Infinity, tb = b.timelineTs || Infinity;
       return ta - tb;
     });
-    return '<section class="dept" id="dept-' + esc(group.key) + '" style="border-top-color:' + theme.main + '">' +
+    return '<section class="dept" style="border-top-color:' + theme.main + '">' +
       '<header class="dept-head" style="background:' + theme.tint + '">' +
         '<div class="dept-title"><i class="dot" style="background:' + theme.main + '"></i><h3>' + esc(group.label) + '</h3></div>' +
         '<div class="dept-meta">' +
@@ -436,67 +443,29 @@
   }
   function setStatus(txt, cls) { statusEl.textContent = txt; statusEl.className = cls || ''; }
 
-  // ADDED: builds the mobile-only sticky chip strip so a specific department's
-  // items can be reached without scrolling past every other section (task 2).
-  var deptnavEl = document.getElementById('deptnav');
-  function renderDeptNav(groups) {
-    deptnavEl.innerHTML = groups.map(function (g) {
-      var theme = themeFor(g.key);
-      return '<a href="#dept-' + esc(g.key) + '" style="background:' + theme.deep + '">' +
-        esc(g.label) + '</a>';
-    }).join('');
-  }
-
-  // ADDED: fire-and-forget write-back for the per-item Update control (task 1).
-  // Same CORS caveat as index.html's version — see doPost()'s comment in code.js.
-  function postStatusUpdate(row, newStatus, cb) {
-    try {
-      fetch(CONFIG.API_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ sheet: 'Strategy', row: row, status: newStatus })
-      }).then(function () { cb(true); }).catch(function () { cb(false); });
-    } catch (e) { cb(false); }
-  }
-
-  // ADDED: single delegated listener handles every item's Update button/popover/save,
-  // so nothing needs re-wiring each time wrap.innerHTML is replaced.
-  wrap.addEventListener('click', function (e) {
-    var openBtn = e.target.closest('[data-updbtn]');
-    var saveBtn = e.target.closest('[data-updsave]');
-    if (openBtn) {
-      var pop = wrap.querySelector('[data-updpop="' + openBtn.getAttribute('data-updbtn') + '"]');
-      var wasOpen = pop.classList.contains('open');
-      wrap.querySelectorAll('.upd-pop.open').forEach(function (p) { p.classList.remove('open'); });
-      if (!wasOpen) pop.classList.add('open');
-      return;
-    }
-    if (saveBtn) {
-      var id = saveBtn.getAttribute('data-updsave');
-      var sel = wrap.querySelector('[data-updsel="' + id + '"]');
-      saveBtn.disabled = true; saveBtn.textContent = '…';
-      postStatusUpdate(parseInt(id, 10), sel.value, function () {
-        saveBtn.textContent = 'Saved ✓';
-        setTimeout(function () { loadLive(true); }, 2500); // re-fetch to confirm + re-render
-      });
-      return;
-    }
-    if (!e.target.closest('.upd-pop')) {
-      wrap.querySelectorAll('.upd-pop.open').forEach(function (p) { p.classList.remove('open'); });
-    }
-  });
+  /* NEW — additive: flat lookup so the status modal can find/update an item by its sheet row. */
+  var ITEMS_BY_ROW = {};
+  var deptJumpEl = document.getElementById('deptJump');
 
   function render(items, source) {
     var groups = groupByDept(items);
+    ITEMS_BY_ROW = {};
+    items.forEach(function (it) { ITEMS_BY_ROW[it.sheetRow] = it; });
     summaryEl.innerHTML = summaryBar(items);
-    renderDeptNav(groups); // ADDED
     wrap.innerHTML = groups.length
       ? groups.map(deptCard).join('')
       : '<p class="quiet" style="text-align:center;padding:60px 0;">No strategic items found yet. Add rows to the "Strategy" sheet — columns: Strategic Item, Department, Timeline, Priority, Status, Remarks.</p>';
     var tag = source === 'live' ? 'LIVE' : (source === 'snapshot' ? 'SNAPSHOT' : source);
     liveEl.textContent = tag;
     liveEl.className = 'pill ' + (source === 'live' ? 'ok' : 'warnpill');
+    // mobile quick-jump chips, one per department that has items
+    deptJumpEl.innerHTML = groups.map(function (g, i) {
+      return '<a href="#dept-' + g.key + '">' + esc(g.label) + '</a>';
+    }).join('');
+    groups.forEach(function (g, i) {
+      var section = wrap.children[i];
+      if (section) section.id = 'dept-' + g.key;
+    });
   }
 
   function applyRows(rows, source) {
@@ -531,6 +500,64 @@
   if (window.EMBEDDED_STRATEGY_ROWS) applyRows(window.EMBEDDED_STRATEGY_ROWS, 'snapshot');
   loadLive(!!window.EMBEDDED_STRATEGY_ROWS);
   if (CONFIG.REFRESH_MINUTES > 0) setInterval(function () { loadLive(true); }, CONFIG.REFRESH_MINUTES * 60000);
+
+  /* ================================================================
+     6. NEW — additive: tap-to-update status (modal + save-to-sheet)
+     ================================================================ */
+  var STATUS_OPTIONS = ['Open', 'In Progress', 'Waiting', 'Blocked', 'Closed', 'Noted'];
+  var updOverlay = document.getElementById('updOverlay');
+  var updItemName = document.getElementById('updItemName');
+  var updOptions = document.getElementById('updOptions');
+  var updMsg = document.getElementById('updMsg');
+  var updCurrentRow = null;
+
+  function renderUpdOptions(currentStatus) {
+    updOptions.innerHTML = STATUS_OPTIONS.map(function (s) {
+      var isActive = parseStatus(s) === currentStatus;
+      return '<button type="button" class="updOpt' + (isActive ? ' active' : '') +
+        '" onclick="window.__chooseUpdate(\'' + s + '\')">' + s + '</button>';
+    }).join('');
+  }
+
+  window.__openUpdate = function (sheetRow) {
+    var it = ITEMS_BY_ROW[sheetRow];
+    if (!it) return;
+    updCurrentRow = sheetRow;
+    updItemName.textContent = it.item;
+    updMsg.textContent = ''; updMsg.className = '';
+    renderUpdOptions(it.status);
+    updOverlay.className = 'open';
+  };
+  window.__closeUpdate = function () { updOverlay.className = ''; updCurrentRow = null; };
+
+  window.__chooseUpdate = function (label) {
+    var it = ITEMS_BY_ROW[updCurrentRow];
+    if (!it) return;
+    updMsg.textContent = 'Saving…'; updMsg.className = '';
+    var url = CONFIG.API_URL;
+    fetch(url, {
+      method: 'POST',
+      body: JSON.stringify({ sheet: 'strategy', row: it.sheetRow, col: it.statusCol, value: label })
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      if (!res || res.ok === false) throw new Error(res && res.error ? res.error : 'Save failed');
+      // optimistic local update — no full reload needed
+      it.status = parseStatus(label);
+      var badgeEl = document.getElementById('item-badge-' + it.sheetRow);
+      if (badgeEl) {
+        var b = BADGE[it.status] || BADGE['OPEN'];
+        badgeEl.style.color = b[0]; badgeEl.style.background = b[1]; badgeEl.textContent = it.status;
+      }
+      updMsg.textContent = 'Saved ✓'; updMsg.className = 'ok';
+      setTimeout(function () { window.__closeUpdate(); }, 700);
+    }).catch(function (err) {
+      updMsg.textContent = '⚠ ' + err.message; updMsg.className = 'err';
+    });
+  };
+
+  var backTopBtn = document.getElementById('backTop');
+  window.addEventListener('scroll', function () {
+    backTopBtn.className = window.scrollY > 500 ? 'show' : '';
+  });
 
   window.__strategyPipeline = { parseStrategy: parseStrategy, groupByDept: groupByDept, CONFIG: CONFIG };
 })();
