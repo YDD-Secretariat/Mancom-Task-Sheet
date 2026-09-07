@@ -40,6 +40,16 @@
       max-width: 960px;
       margin: 0 auto;
     }
+    .backlink {
+      display: inline-block;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #BFE0D5;
+      text-decoration: none;
+      margin-bottom: 14px;
+    }
+    .backlink:hover { color: #fff; }
     header .eyebrow {
       font-family: 'Helvetica Neue', Arial, sans-serif;
       font-size: 12.5px;
@@ -237,6 +247,11 @@
       font-size: 13px;
       color: var(--sub);
     }
+    .leader-item .btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
     .wa-btn {
       display: inline-flex;
       align-items: center;
@@ -392,12 +407,12 @@
       .wa-btn { justify-content: center; }
     }
   </style>
-<base target="_blank">
 </head>
 <body>
 
 <header>
   <div class="inner">
+    <a class="backlink" href="index.html">← Back to Task Board</a>
     <div class="eyebrow">MANCOM · WECA</div>
     <h1>Directory · Your Area & Country Contacts</h1>
     <p>Select your name to see the leaders you correspond with, then tap WhatsApp to message them directly.</p>
@@ -460,6 +475,11 @@
 <script>
   /* ================================================================
      MANCOM Directory — Live from Google Sheets + WhatsApp messaging
+     Contacts sheet columns expected (in this order):
+       A: Name   B: Role   C: Nigeria Area   D: International Country   E: WhatsApp
+     A row may have EITHER a Nigeria Area OR an International Country,
+     OR (if it ever happens) BOTH — in that case two separate WhatsApp
+     buttons are shown for that row, one per assignment.
      ================================================================ */
 
   (function() {
@@ -467,7 +487,7 @@
 
     // ─── CONFIG ──────────────────────────────────────────────────────
     var CONFIG = {
-      // Same /exec URL used by the other MANCOM pages
+      // Same /exec URL used by index.html and strategy.html
       API_URL: 'https://script.google.com/macros/s/AKfycbytS8yzg1hRdGi5YhXLe0DKGi7SJlfOFjE_tETmAN6wq6d2b29yqd4eb1FZomli1dIgew/exec',
       REFRESH_MINUTES: 5
     };
@@ -478,7 +498,7 @@
       {
         name: "Bro. Nathaniel Oladunmomi",
         areas: ["Abesan", "Delta", "Edo"],
-        countries: ["Ghana"]  // Tier 1
+        countries: ["Ghana"]
       },
       {
         name: "Bro. Daniel Dakoru",
@@ -503,7 +523,7 @@
       {
         name: "Bro. David Adesola",
         areas: ["Oyo", "Kwara"],
-        countries: ["Gambia", "Senegal"]  // Gambia Tier1, Senegal Tier2
+        countries: ["Gambia", "Senegal"]
       },
       {
         name: "Sis. Tosin Fasanya",
@@ -551,17 +571,13 @@
     var tableCaption = document.getElementById('tableCaption');
 
     // ─── state ──────────────────────────────────────────────────────
-    var CONTACTS = [];     // array of { name, role, areaCountry, phone, type }
-    var DATA_BY_NAME = {}; // index for quick lookup
+    // Each contact: { name, role, nigeriaArea, intlCountry, phone }
+    var CONTACTS = [];
 
     // ─── helpers ──────────────────────────────────────────────────
     function esc(s) {
       return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
         .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
-
-    function norm(s) {
-      return String(s || '').toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
     }
 
     function cleanPhone(phone) {
@@ -570,8 +586,11 @@
       if (!/^\+/.test(raw)) {
         if (/^0/.test(raw)) {
           raw = '+234' + raw.slice(1);
-        } else {
+        } else if (/^234/.test(raw) || raw.length > 11) {
           raw = '+' + raw;
+        } else {
+          // bare local number with no leading 0 or country code — assume Nigeria
+          raw = '+234' + raw;
         }
       }
       return raw;
@@ -580,7 +599,7 @@
     function buildWhatsAppUrl(phone, message) {
       var cleaned = cleanPhone(phone);
       if (!cleaned) return null;
-      var url = 'https://wa.me/' + encodeURIComponent(cleaned);
+      var url = 'https://wa.me/' + encodeURIComponent(cleaned.replace('+', ''));
       if (message) url += '?text=' + encodeURIComponent(message);
       return url;
     }
@@ -592,24 +611,37 @@
         areaOrCountry + '.';
     }
 
-    // ─── render WhatsApp button ──────────────────────────────────
-    function renderWaButton(leader, areaOrCountry, senderName) {
-      var phone = leader.phone;
+    // ─── render one WhatsApp button ──────────────────────────────
+    function waButton(name, phone, areaOrCountry, senderName, secondary) {
       if (!phone) return '';
-      var msg = makeMessage(leader.name, areaOrCountry, senderName);
+      var msg = makeMessage(name, areaOrCountry, senderName);
       var url = buildWhatsAppUrl(phone, msg);
       if (!url) return '';
-      return '<a class="wa-btn" href="' + url + '" target="_blank" rel="noopener">' +
+      return '<a class="wa-btn' + (secondary ? ' secondary' : '') + '" href="' + url + '" target="_blank" rel="noopener" title="Message about ' + esc(areaOrCountry) + '">' +
         '<svg viewBox="0 0 24 24"><path d="M12.032 21.965a9.96 9.96 0 0 1-5.08-1.397l-.278-.165-3.678.965 1.016-3.497-.177-.288A9.96 9.96 0 0 1 2.016 12.03C2.016 6.471 6.477 2 12.032 2s10.016 4.471 10.016 10.03-4.48 10.03-10.016 10.03zm0-18.95a8.92 8.92 0 0 0-8.916 8.92c0 1.642.446 3.245 1.29 4.642l.086.146-.688 2.476 2.569-.671.148.088a8.91 8.91 0 0 0 4.514 1.239 8.92 8.92 0 0 0 8.917-8.92 8.92 8.92 0 0 0-8.92-8.92zm4.887 11.124c-.135-.068-1.033-.509-1.193-.567-.16-.059-.277-.088-.394.088-.117.176-.454.567-.556.683-.102.117-.204.132-.377.064-.174-.068-.736-.271-1.404-.866-.514-.455-.861-1.016-.962-1.188-.102-.172-.01-.265.076-.35.077-.076.172-.198.258-.297.086-.099.115-.17.172-.282.058-.113.029-.212-.015-.297-.044-.085-.394-.95-.54-1.3-.142-.341-.286-.286-.394-.291h-.339c-.117 0-.306.044-.467.219s-.612.598-.612 1.459c0 .861.627 1.693.715 1.81.088.117 1.235 1.885 2.993 2.544.418.157.745.25 1.002.32.421.134.804.115 1.107.07.338-.05 1.033-.422 1.179-.83.146-.409.146-.759.102-.832-.044-.073-.164-.117-.299-.185z"/></svg>' +
-        'WhatsApp' +
+        esc(areaOrCountry) +
         '</a>';
     }
 
+    // Returns HTML for ONE OR TWO WhatsApp buttons for a contact row —
+    // one for the Nigeria Area assignment, one for the International
+    // Country assignment, whichever are present on that row.
+    function renderWaButtons(c, senderName) {
+      var html = '';
+      if (c.nigeriaArea) {
+        html += waButton(c.name, c.phone, c.nigeriaArea, senderName, false);
+      }
+      if (c.intlCountry) {
+        html += waButton(c.name, c.phone, c.intlCountry, senderName, !!c.nigeriaArea);
+      }
+      return html;
+    }
+
     // ─── build data from Contacts sheet ──────────────────────────
+    // Columns: A Name | B Role | C Nigeria Area | D International Country | E WhatsApp
     function buildContactsFromSheet(rows) {
       if (!rows || !rows.length) return [];
       var result = [];
-      // Assume header row is first row with "Name" in column 0
       var startIdx = 0;
       var first = rows[0] || [];
       var firstVal = String(first[0] || '').toLowerCase();
@@ -621,20 +653,15 @@
         var name = String(row[0] || '').trim();
         if (!name) continue;
         var role = String(row[1] || '').trim();
-        var areaCountry = String(row[2] || '').trim();
-        var phone = String(row[3] || '').trim();
-        var type = String(row[4] || '').trim().toLowerCase();
-        // Determine type if not provided: if areaCountry contains a country name from our list, we could guess, but better to enforce.
-        if (!type) {
-          // Heuristic: if areaCountry appears in our countries list? We'll just default to 'nigeria' if not.
-          type = 'nigeria';
-        }
+        var nigeriaArea = String(row[2] || '').trim();
+        var intlCountry = String(row[3] || '').trim();
+        var phone = String(row[4] || '').trim();
         result.push({
           name: name,
           role: role,
-          areaCountry: areaCountry,
-          phone: phone,
-          type: type === 'international' ? 'international' : 'nigeria'
+          nigeriaArea: nigeriaArea,
+          intlCountry: intlCountry,
+          phone: phone
         });
       }
       return result;
@@ -652,8 +679,8 @@
       // ---- Nigeria areas ----
       var areas = member.areas || [];
       var nigeriaLeaders = CONTACTS.filter(function(c) {
-        return c.type === 'nigeria' && areas.some(function(a) {
-          return c.areaCountry.toLowerCase().indexOf(a.toLowerCase()) >= 0;
+        return c.nigeriaArea && areas.some(function(a) {
+          return c.nigeriaArea.toLowerCase().indexOf(a.toLowerCase()) >= 0;
         });
       });
       if (nigeriaLeaders.length) {
@@ -662,8 +689,8 @@
           html += '<div class="leader-item">' +
             '<div class="info"><span class="name">' + esc(leader.name) + '</span>' +
             (leader.role ? ' <span style="color:var(--sub);font-size:13px;">' + esc(leader.role) + '</span>' : '') +
-            '<div class="area">' + esc(leader.areaCountry) + '</div></div>' +
-            renderWaButton(leader, leader.areaCountry, senderName) +
+            '<div class="area">' + esc(leader.nigeriaArea) + '</div></div>' +
+            '<div class="btns">' + waButton(leader.name, leader.phone, leader.nigeriaArea, senderName, false) + '</div>' +
             '</div>';
         });
         html += '</div>';
@@ -674,8 +701,8 @@
       // ---- International countries ----
       var countries = member.countries || [];
       var intlLeaders = CONTACTS.filter(function(c) {
-        return c.type === 'international' && countries.some(function(ctry) {
-          return c.areaCountry.toLowerCase().indexOf(ctry.toLowerCase()) >= 0;
+        return c.intlCountry && countries.some(function(ctry) {
+          return c.intlCountry.toLowerCase().indexOf(ctry.toLowerCase()) >= 0;
         });
       });
       if (intlLeaders.length) {
@@ -684,8 +711,8 @@
           html += '<div class="leader-item">' +
             '<div class="info"><span class="name">' + esc(leader.name) + '</span>' +
             (leader.role ? ' <span style="color:var(--sub);font-size:13px;">' + esc(leader.role) + '</span>' : '') +
-            '<div class="area">' + esc(leader.areaCountry) + '</div></div>' +
-            renderWaButton(leader, leader.areaCountry, senderName) +
+            '<div class="area">' + esc(leader.intlCountry) + '</div></div>' +
+            '<div class="btns">' + waButton(leader.name, leader.phone, leader.intlCountry, senderName, false) + '</div>' +
             '</div>';
         });
         html += '</div>';
@@ -706,14 +733,19 @@
       }
       var html = '';
       CONTACTS.forEach(function(c) {
-        var searchStr = (c.name + ' ' + c.role + ' ' + c.areaCountry + ' ' + c.type).toLowerCase();
-        var waBtn = renderWaButton(c, c.areaCountry, senderName);
+        var areaCell = [c.nigeriaArea, c.intlCountry].filter(Boolean).join(' · ');
+        var typeCell = [
+          c.nigeriaArea ? '🇳🇬 Nigeria' : '',
+          c.intlCountry ? '🌍 International' : ''
+        ].filter(Boolean).join(' / ');
+        var searchStr = (c.name + ' ' + c.role + ' ' + areaCell + ' ' + typeCell).toLowerCase();
+        var waBtns = renderWaButtons(c, senderName);
         html += '<tr data-search="' + esc(searchStr) + '">' +
           '<td class="name">' + esc(c.name) + '</td>' +
           '<td>' + esc(c.role || '—') + '</td>' +
-          '<td>' + esc(c.areaCountry) + '</td>' +
-          '<td>' + (c.type === 'international' ? '🌍 International' : '🇳🇬 Nigeria') + '</td>' +
-          '<td><div class="wa-cell">' + waBtn + '</div></td>' +
+          '<td>' + esc(areaCell || '—') + '</td>' +
+          '<td>' + (typeCell || '—') + '</td>' +
+          '<td><div class="wa-cell">' + (waBtns || '<span class="empty-note">No number</span>') + '</div></td>' +
           '</tr>';
       });
       tbody.innerHTML = html;
@@ -773,12 +805,10 @@
     yourNameInput.addEventListener('input', function() {
       var val = this.value.trim();
       localStorage.setItem(STORAGE_KEY, val);
-      // Refresh current detail if open
       var idx = parseInt(picker.value, 10);
       if (!isNaN(idx) && idx >= 0 && idx < MANCOM_MAPPING.length) {
         renderDetail(idx, val || 'a MANCOM member');
       }
-      // Also refresh table
       renderTable(val || 'a MANCOM member');
     });
 
