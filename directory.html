@@ -1,0 +1,198 @@
+/**
+ * MANCOM Card Studio — live data endpoint.
+ * Includes: Now, Last, Members, Strategy, and now Contacts.
+ * Plus POST status‑update and a sort‑by‑department utility.
+ */
+var SPREADSHEET_ID = '';          // leave blank to use the attached sheet
+var MAX_ROWS = 400;
+var MAX_COLS = 8;
+
+function doGet(e) {
+  var out;
+  try {
+    var ss = SPREADSHEET_ID
+      ? SpreadsheetApp.openById(SPREADSHEET_ID)
+      : SpreadsheetApp.getActiveSpreadsheet();
+
+    out = {
+      ok: true,
+      spreadsheet: ss.getName(),
+      generatedAt: new Date().toISOString(),
+      now: readSheet(ss, ['Now', 'Sheet7', 'NOW']),
+      last: readSheet(ss, ['Last', 'LAST']),
+      members: readSheet(ss, ['Members', 'MEMBERS', 'Member']),
+      strategy: readSheet(ss, ['Strategy', 'STRATEGY', 'Strategic Agenda']),
+      contacts: readSheet(ss, ['Contacts', 'CONTACTS', 'Contact'])   // <-- NEW
+    };
+    if (!out.now) { out.ok = false; out.error = 'No sheet named "Now" (or Sheet7) was found'; }
+    if (!out.last) out.last = [];
+    if (!out.members) out.members = [];
+    if (!out.strategy) out.strategy = [];
+    if (!out.contacts) out.contacts = [];
+  } catch (err) {
+    out = { ok: false, error: String(err && err.message ? err.message : err) };
+  }
+  return reply(out, e);
+}
+
+function readSheet(ss, names) {
+  var sh = null;
+  for (var i = 0; i < names.length; i++) {
+    sh = ss.getSheetByName(names[i]);
+    if (sh) break;
+  }
+  if (!sh) return null;
+  var lastRow = Math.min(sh.getLastRow(), MAX_ROWS);
+  var lastCol = Math.min(sh.getLastColumn(), MAX_COLS);
+  if (lastRow < 1 || lastCol < 1) return [];
+  var values = sh.getRange(1, 1, lastRow, lastCol).getValues();
+  var tz = ss.getSpreadsheetTimeZone() || 'Africa/Lagos';
+  return values.map(function (row) {
+    return row.map(function (v) {
+      if (v instanceof Date) return Utilities.formatDate(v, tz, 'yyyy-MM-dd');
+      if (v === null || v === undefined) return '';
+      if (typeof v === 'string') return v.replace(/\s+$/, '');
+      return v;
+    });
+  });
+}
+
+function reply(obj, e) {
+  var json = JSON.stringify(obj);
+  var cb = e && e.parameter && e.parameter.callback;
+  if (cb && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(cb)) {
+    return ContentService
+      .createTextOutput(cb + '(' + json + ');')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+  return ContentService
+    .createTextOutput(json)
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function testRead() {
+  var res = JSON.parse(doGet({ parameter: {} }).getContent());
+  Logger.log('ok: %s | now: %s | last: %s | members: %s | strategy: %s | contacts: %s',
+    res.ok, (res.now || []).length, (res.last || []).length,
+    (res.members || []).length, (res.strategy || []).length,
+    (res.contacts || []).length);
+}
+
+// ---------- POST status update (unchanged) ----------
+function doPost(e) {
+  try {
+    var body = JSON.parse(e.postData.contents);
+    var sheetName = String(body.sheet || 'Now');
+    var row = parseInt(body.row, 10);
+    var status = body.status == null ? '' : String(body.status);
+    if (!row || row < 2) throw new Error('Invalid row number: ' + body.row);
+
+    var ss = SPREADSHEET_ID
+      ? SpreadsheetApp.openById(SPREADSHEET_ID)
+      : SpreadsheetApp.getActiveSpreadsheet();
+
+    var names = sheetName === 'Strategy' ? ['Strategy', 'STRATEGY', 'Strategic Agenda']
+      : sheetName === 'Last' ? ['Last', 'LAST']
+      : ['Now', 'Sheet7', 'NOW'];
+    var sh = null;
+    for (var i = 0; i < names.length; i++) { sh = ss.getSheetByName(names[i]); if (sh) break; }
+    if (!sh) throw new Error('Sheet not found: ' + sheetName);
+
+    var statusCol = findStatusColumn_(sh, sheetName);
+    sh.getRange(row, statusCol).setValue(status);
+
+    return reply({ ok: true, sheet: sheetName, row: row, status: status }, e);
+  } catch (err) {
+    return reply({ ok: false, error: String(err && err.message ? err.message : err) }, e);
+  }
+}
+
+function findStatusColumn_(sh, sheetName) {
+  if (sheetName === 'Strategy') {
+    var lastCol = Math.min(sh.getLastColumn(), MAX_COLS);
+    var header = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+    for (var c = 0; c < header.length; c++) {
+      if (String(header[c] || '').toLowerCase().trim().indexOf('status') === 0) return c + 1;
+    }
+    return 5;
+  }
+  return 5; // Now/Last: Status is column E
+}
+
+// ---------- Strategy sort utility (unchanged) ----------
+function sortStrategyByDepartment() {
+  try {
+    var ss = SPREADSHEET_ID
+      ? SpreadsheetApp.openById(SPREADSHEET_ID)
+      : SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = null;
+    var possibleNames = ['Strategy', 'STRATEGY', 'Strategic Agenda'];
+    for (var i = 0; i < possibleNames.length; i++) {
+      sheet = ss.getSheetByName(possibleNames[i]);
+      if (sheet) break;
+    }
+    if (!sheet) {
+      Logger.log('ERROR: Strategy sheet not found.');
+      return 'ERROR: Strategy sheet not found.';
+    }
+    var lastRow = Math.min(sheet.getLastRow(), MAX_ROWS || 400);
+    var lastCol = Math.min(sheet.getLastColumn(), MAX_COLS || 8);
+    if (lastRow < 2) return 'No data to sort.';
+    var range = sheet.getRange(1, 1, lastRow, lastCol);
+    var data = range.getValues();
+    var headerRow = data[0];
+    var departmentColIndex = -1;
+    for (var col = 0; col < headerRow.length; col++) {
+      var cellValue = String(headerRow[col] || '').toLowerCase().trim();
+      if (cellValue === 'department' || cellValue === 'dept' || cellValue.includes('department')) {
+        departmentColIndex = col;
+        break;
+      }
+    }
+    if (departmentColIndex === -1) return 'ERROR: Department column not found.';
+    var header = data[0];
+    var rowsToSort = data.slice(1).filter(function(row) {
+      return row.some(function(cell) { return cell !== '' && cell !== null && cell !== undefined; });
+    });
+    if (rowsToSort.length === 0) return 'No data rows found to sort.';
+    rowsToSort.sort(function(rowA, rowB) {
+      var deptA = String(rowA[departmentColIndex] || '').toLowerCase().trim();
+      var deptB = String(rowB[departmentColIndex] || '').toLowerCase().trim();
+      if (deptA === '' && deptB === '') return 0;
+      if (deptA === '') return 1;
+      if (deptB === '') return -1;
+      return deptA.localeCompare(deptB);
+    });
+    var sortedData = [header].concat(rowsToSort);
+    var outputRange = sheet.getRange(1, 1, sortedData.length, lastCol);
+    outputRange.setValues(sortedData);
+    sheet.getRange(1, 1, 1, lastCol).setFontWeight('bold');
+    Logger.log('SUCCESS: Strategy sheet sorted by Department column.');
+    return 'Strategy sheet sorted successfully! ' + rowsToSort.length + ' rows sorted.';
+  } catch (err) {
+    var errorMsg = 'Error sorting Strategy sheet: ' + String(err && err.message ? err.message : err);
+    Logger.log(errorMsg);
+    return 'ERROR: ' + errorMsg;
+  }
+}
+
+function sortStrategyAndRefresh() {
+  var result = sortStrategyByDepartment();
+  Logger.log('Sort result: ' + result);
+  try {
+    var testResult = doGet({ parameter: {} });
+    Logger.log('JSON endpoint refreshed.');
+  } catch (e) {
+    Logger.log('Could not refresh JSON endpoint: ' + e);
+  }
+  return result;
+}
+
+function onOpen() {
+  var ui = SpreadsheetApp.getUi();
+  ui.createMenu('MANCOM Tools')
+    .addItem('Sort Strategy by Department', 'sortStrategyByDepartment')
+    .addSeparator()
+    .addItem('Sort & Refresh JSON', 'sortStrategyAndRefresh')
+    .addToUi();
+}
