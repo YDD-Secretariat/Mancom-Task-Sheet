@@ -1,198 +1,927 @@
-/**
- * MANCOM Card Studio — live data endpoint.
- * Includes: Now, Last, Members, Strategy, and now Contacts.
- * Plus POST status‑update and a sort‑by‑department utility.
- */
-var SPREADSHEET_ID = '';          // leave blank to use the attached sheet
-var MAX_ROWS = 400;
-var MAX_COLS = 8;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MANCOM Area &amp; Country Directory · Live</title>
+    <style>
+        /* ── base ── */
+        :root {
+            --ink: #1C2321;
+            --sub: #5C6863;
+            --line: #DDE3DE;
+            --bg: #F6F5F1;
+            --panel: #FFFFFF;
+            --deep: #12433A;
+            --deep2: #1B5C4F;
+            --t1: #B8860B;
+            --t1-bg: #FBF2D9;
+            --t1-line: #E9D28C;
+            --t2: #B5541A;
+            --t2-bg: #FCEADD;
+            --t2-line: #EFBF97;
+            --whatsapp: #25D366;
+            --whatsapp-dark: #1DA851;
+        }
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            font-family: 'Iowan Old Style', 'Georgia', serif;
+            background: var(--bg);
+            color: var(--ink);
+        }
+        .wrap {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 0 20px 70px;
+        }
 
-function doGet(e) {
-  var out;
-  try {
-    var ss = SPREADSHEET_ID
-      ? SpreadsheetApp.openById(SPREADSHEET_ID)
-      : SpreadsheetApp.getActiveSpreadsheet();
+        /* ── header ── */
+        header {
+            background: var(--deep);
+            color: #F3F0E6;
+            padding: 34px 20px 30px;
+        }
+        header .inner {
+            max-width: 960px;
+            margin: 0 auto;
+        }
+        header .eyebrow {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-size: 12.5px;
+            font-weight: 600;
+            color: #BFE0D5;
+            margin-bottom: 8px;
+        }
+        header h1 {
+            font-size: clamp(26px, 4.4vw, 36px);
+            font-weight: 600;
+            margin: 0 0 8px;
+            line-height: 1.15;
+        }
+        header p {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-size: 14.5px;
+            color: #CFE3DC;
+            max-width: 52ch;
+            line-height: 1.5;
+            margin: 0;
+        }
 
-    out = {
-      ok: true,
-      spreadsheet: ss.getName(),
-      generatedAt: new Date().toISOString(),
-      now: readSheet(ss, ['Now', 'Sheet7', 'NOW']),
-      last: readSheet(ss, ['Last', 'LAST']),
-      members: readSheet(ss, ['Members', 'MEMBERS', 'Member']),
-      strategy: readSheet(ss, ['Strategy', 'STRATEGY', 'Strategic Agenda']),
-      contacts: readSheet(ss, ['Contacts', 'CONTACTS', 'Contact'])   // <-- NEW
-    };
-    if (!out.now) { out.ok = false; out.error = 'No sheet named "Now" (or Sheet7) was found'; }
-    if (!out.last) out.last = [];
-    if (!out.members) out.members = [];
-    if (!out.strategy) out.strategy = [];
-    if (!out.contacts) out.contacts = [];
-  } catch (err) {
-    out = { ok: false, error: String(err && err.message ? err.message : err) };
-  }
-  return reply(out, e);
-}
+        /* ── top bar: name + status ── */
+        .top-controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 14px 20px;
+            margin-top: -16px;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 4px;
+            box-shadow: 0 18px 40px rgba(18, 67, 58, .14);
+            padding: 18px 24px 22px;
+        }
+        .top-controls .name-field {
+            flex: 1 1 240px;
+            min-width: 160px;
+        }
+        .top-controls .name-field label {
+            display: block;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .02em;
+            color: var(--sub);
+            margin-bottom: 4px;
+        }
+        .top-controls .name-field input {
+            width: 100%;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-size: 15px;
+            padding: 8px 12px;
+            border: 1.5px solid var(--line);
+            border-radius: 3px;
+            background: #fff;
+            color: var(--ink);
+        }
+        .top-controls .status-badge {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--sub);
+            padding: 6px 14px;
+            background: var(--bg);
+            border-radius: 30px;
+            white-space: nowrap;
+        }
+        .top-controls .status-badge.live {
+            background: #E3F0EB;
+            color: var(--deep);
+        }
+        .top-controls .status-badge.error {
+            background: #FDE8E7;
+            color: #B43A34;
+        }
+        .top-controls .refresh-btn {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 30px;
+            background: var(--deep);
+            color: #fff;
+            cursor: pointer;
+            letter-spacing: .3px;
+            transition: background .15s;
+        }
+        .top-controls .refresh-btn:hover {
+            background: var(--deep2);
+        }
 
-function readSheet(ss, names) {
-  var sh = null;
-  for (var i = 0; i < names.length; i++) {
-    sh = ss.getSheetByName(names[i]);
-    if (sh) break;
-  }
-  if (!sh) return null;
-  var lastRow = Math.min(sh.getLastRow(), MAX_ROWS);
-  var lastCol = Math.min(sh.getLastColumn(), MAX_COLS);
-  if (lastRow < 1 || lastCol < 1) return [];
-  var values = sh.getRange(1, 1, lastRow, lastCol).getValues();
-  var tz = ss.getSpreadsheetTimeZone() || 'Africa/Lagos';
-  return values.map(function (row) {
-    return row.map(function (v) {
-      if (v instanceof Date) return Utilities.formatDate(v, tz, 'yyyy-MM-dd');
-      if (v === null || v === undefined) return '';
-      if (typeof v === 'string') return v.replace(/\s+$/, '');
-      return v;
-    });
-  });
-}
+        /* ── lookup card ── */
+        .lookup {
+            margin-top: 18px;
+        }
+        .lookup-card {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 4px;
+            box-shadow: 0 12px 32px rgba(18, 67, 58, .10);
+            padding: 22px 24px 26px;
+        }
+        .lookup-label {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-size: 11.5px;
+            font-weight: 700;
+            letter-spacing: .02em;
+            color: var(--sub);
+            margin-bottom: 10px;
+        }
+        select {
+            width: 100%;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            padding: 13px 14px;
+            border: 1.5px solid var(--line);
+            border-radius: 3px;
+            background: #fff;
+            color: var(--ink);
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9'%3E%3Cpath d='M1 1l6 6 6-6' stroke='%235C6863' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            cursor: pointer;
+        }
 
-function reply(obj, e) {
-  var json = JSON.stringify(obj);
-  var cb = e && e.parameter && e.parameter.callback;
-  if (cb && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(cb)) {
-    return ContentService
-      .createTextOutput(cb + '(' + json + ');')
-      .setMimeType(ContentService.MimeType.JAVASCRIPT);
-  }
-  return ContentService
-    .createTextOutput(json)
-    .setMimeType(ContentService.MimeType.JSON);
-}
+        /* ── result (lookup detail) ── */
+        #result {
+            margin-top: 18px;
+            display: none;
+        }
+        #result.show {
+            display: block;
+        }
+        .person-row {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 6px 16px;
+            border-bottom: 2px solid var(--ink);
+            padding-bottom: 10px;
+            margin-bottom: 16px;
+        }
+        .person-row h2 {
+            font-size: 23px;
+            margin: 0;
+            font-weight: 600;
+        }
+        .person-row .sn {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-size: 12px;
+            color: var(--sub);
+        }
+        .field {
+            margin-bottom: 14px;
+        }
+        .field:last-child {
+            margin-bottom: 0;
+        }
+        .field .k {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--sub);
+            margin-bottom: 5px;
+        }
+        .field .v {
+            font-size: 17px;
+            line-height: 1.4;
+        }
+        .chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+        }
+        .chip {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-size: 13.5px;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 3px;
+            border: 1px solid;
+        }
+        .chip.t1 {
+            color: var(--t1);
+            background: var(--t1-bg);
+            border-color: var(--t1-line);
+        }
+        .chip.t2 {
+            color: var(--t2);
+            background: var(--t2-bg);
+            border-color: var(--t2-line);
+        }
+        .empty-note {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-size: 13.5px;
+            color: var(--sub);
+            font-style: italic;
+        }
 
-function testRead() {
-  var res = JSON.parse(doGet({ parameter: {} }).getContent());
-  Logger.log('ok: %s | now: %s | last: %s | members: %s | strategy: %s | contacts: %s',
-    res.ok, (res.now || []).length, (res.last || []).length,
-    (res.members || []).length, (res.strategy || []).length,
-    (res.contacts || []).length);
-}
+        /* ── detail WhatsApp buttons ── */
+        .detail-wa {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 6px;
+        }
+        .wa-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 9px 18px 9px 16px;
+            border: none;
+            border-radius: 30px;
+            background: var(--whatsapp);
+            color: #fff;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background .15s, transform .1s;
+            letter-spacing: .2px;
+        }
+        .wa-btn:hover {
+            background: var(--whatsapp-dark);
+        }
+        .wa-btn:active {
+            transform: scale(.97);
+        }
+        .wa-btn svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+            flex: none;
+        }
+        .wa-btn.secondary {
+            background: #2A7A5A;
+        }
+        .wa-btn.secondary:hover {
+            background: #1D6548;
+        }
+        .wa-btn:disabled {
+            opacity: .45;
+            cursor: not-allowed;
+            transform: none;
+        }
 
-// ---------- POST status update (unchanged) ----------
-function doPost(e) {
-  try {
-    var body = JSON.parse(e.postData.contents);
-    var sheetName = String(body.sheet || 'Now');
-    var row = parseInt(body.row, 10);
-    var status = body.status == null ? '' : String(body.status);
-    if (!row || row < 2) throw new Error('Invalid row number: ' + body.row);
+        /* ── divider ── */
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 44px 0 18px;
+        }
+        .divider span {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--sub);
+            white-space: nowrap;
+        }
+        .divider .rule {
+            height: 1px;
+            background: var(--line);
+            flex: 1;
+        }
 
-    var ss = SPREADSHEET_ID
-      ? SpreadsheetApp.openById(SPREADSHEET_ID)
-      : SpreadsheetApp.getActiveSpreadsheet();
+        /* ── filter ── */
+        .filter-row {
+            margin-bottom: 14px;
+        }
+        .filter-row input {
+            width: 100%;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-size: 14.5px;
+            padding: 11px 14px;
+            border: 1.5px solid var(--line);
+            border-radius: 3px;
+            background: #fff;
+        }
 
-    var names = sheetName === 'Strategy' ? ['Strategy', 'STRATEGY', 'Strategic Agenda']
-      : sheetName === 'Last' ? ['Last', 'LAST']
-      : ['Now', 'Sheet7', 'NOW'];
-    var sh = null;
-    for (var i = 0; i < names.length; i++) { sh = ss.getSheetByName(names[i]); if (sh) break; }
-    if (!sh) throw new Error('Sheet not found: ' + sheetName);
+        /* ── table ── */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--panel);
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-size: 13.5px;
+        }
+        caption {
+            text-align: left;
+            font-family: 'Iowan Old Style', Georgia, serif;
+            font-size: 14px;
+            color: var(--sub);
+            margin-bottom: 8px;
+            font-style: italic;
+        }
+        thead th {
+            text-align: left;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .02em;
+            color: var(--sub);
+            border-bottom: 2px solid var(--ink);
+            padding: 9px 10px;
+            white-space: nowrap;
+        }
+        tbody td {
+            padding: 10px 10px;
+            border-bottom: 1px solid var(--line);
+            vertical-align: middle;
+        }
+        tbody tr:hover {
+            background: #FBFAF6;
+        }
+        td.name {
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        td .areas {
+            color: var(--sub);
+        }
+        td .chip {
+            font-size: 11.5px;
+            padding: 3px 8px;
+            margin: 1px 3px 1px 0;
+            display: inline-block;
+        }
+        tbody tr.hide {
+            display: none;
+        }
+        .wa-cell {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .wa-cell .wa-btn {
+            font-size: 11px;
+            padding: 5px 12px 5px 10px;
+            border-radius: 30px;
+        }
+        .wa-cell .wa-btn svg {
+            width: 14px;
+            height: 14px;
+        }
+        .wa-cell .wa-btn.secondary {
+            background: #3B7A62;
+        }
+        .wa-cell .wa-btn.secondary:hover {
+            background: #2A634E;
+        }
 
-    var statusCol = findStatusColumn_(sh, sheetName);
-    sh.getRange(row, statusCol).setValue(status);
+        /* ── empty / loading ── */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--sub);
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+        .empty-state .big {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--ink);
+            margin-bottom: 6px;
+        }
+        .empty-state .sub {
+            font-size: 14px;
+        }
 
-    return reply({ ok: true, sheet: sheetName, row: row, status: status }, e);
-  } catch (err) {
-    return reply({ ok: false, error: String(err && err.message ? err.message : err) }, e);
-  }
-}
+        /* ── responsive ── */
+        @media (max-width: 700px) {
+            thead th:nth-child(3),
+            tbody td:nth-child(3) {
+                display: none;
+            }
+            thead th:nth-child(4),
+            tbody td:nth-child(4) {
+                display: none;
+            }
+            .top-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .top-controls .status-badge {
+                text-align: center;
+            }
+            .person-row h2 {
+                font-size: 20px;
+            }
+        }
+        @media (max-width: 500px) {
+            .wrap {
+                padding: 0 12px 50px;
+            }
+            .lookup-card {
+                padding: 16px;
+            }
+            .wa-cell .wa-btn {
+                font-size: 10px;
+                padding: 4px 10px 4px 8px;
+            }
+            .wa-cell .wa-btn svg {
+                width: 12px;
+                height: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
 
-function findStatusColumn_(sh, sheetName) {
-  if (sheetName === 'Strategy') {
-    var lastCol = Math.min(sh.getLastColumn(), MAX_COLS);
-    var header = sh.getRange(1, 1, 1, lastCol).getValues()[0];
-    for (var c = 0; c < header.length; c++) {
-      if (String(header[c] || '').toLowerCase().trim().indexOf('status') === 0) return c + 1;
-    }
-    return 5;
-  }
-  return 5; // Now/Last: Status is column E
-}
+    <header>
+        <div class="inner">
+            <div class="eyebrow">MANCOM · WECA</div>
+            <h1>Where am I serving?</h1>
+            <p>Pick your name to see your assigned areas and countries. Use the WhatsApp buttons to reach leaders directly.</p>
+        </div>
+    </header>
 
-// ---------- Strategy sort utility (unchanged) ----------
-function sortStrategyByDepartment() {
-  try {
-    var ss = SPREADSHEET_ID
-      ? SpreadsheetApp.openById(SPREADSHEET_ID)
-      : SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = null;
-    var possibleNames = ['Strategy', 'STRATEGY', 'Strategic Agenda'];
-    for (var i = 0; i < possibleNames.length; i++) {
-      sheet = ss.getSheetByName(possibleNames[i]);
-      if (sheet) break;
-    }
-    if (!sheet) {
-      Logger.log('ERROR: Strategy sheet not found.');
-      return 'ERROR: Strategy sheet not found.';
-    }
-    var lastRow = Math.min(sheet.getLastRow(), MAX_ROWS || 400);
-    var lastCol = Math.min(sheet.getLastColumn(), MAX_COLS || 8);
-    if (lastRow < 2) return 'No data to sort.';
-    var range = sheet.getRange(1, 1, lastRow, lastCol);
-    var data = range.getValues();
-    var headerRow = data[0];
-    var departmentColIndex = -1;
-    for (var col = 0; col < headerRow.length; col++) {
-      var cellValue = String(headerRow[col] || '').toLowerCase().trim();
-      if (cellValue === 'department' || cellValue === 'dept' || cellValue.includes('department')) {
-        departmentColIndex = col;
-        break;
-      }
-    }
-    if (departmentColIndex === -1) return 'ERROR: Department column not found.';
-    var header = data[0];
-    var rowsToSort = data.slice(1).filter(function(row) {
-      return row.some(function(cell) { return cell !== '' && cell !== null && cell !== undefined; });
-    });
-    if (rowsToSort.length === 0) return 'No data rows found to sort.';
-    rowsToSort.sort(function(rowA, rowB) {
-      var deptA = String(rowA[departmentColIndex] || '').toLowerCase().trim();
-      var deptB = String(rowB[departmentColIndex] || '').toLowerCase().trim();
-      if (deptA === '' && deptB === '') return 0;
-      if (deptA === '') return 1;
-      if (deptB === '') return -1;
-      return deptA.localeCompare(deptB);
-    });
-    var sortedData = [header].concat(rowsToSort);
-    var outputRange = sheet.getRange(1, 1, sortedData.length, lastCol);
-    outputRange.setValues(sortedData);
-    sheet.getRange(1, 1, 1, lastCol).setFontWeight('bold');
-    Logger.log('SUCCESS: Strategy sheet sorted by Department column.');
-    return 'Strategy sheet sorted successfully! ' + rowsToSort.length + ' rows sorted.';
-  } catch (err) {
-    var errorMsg = 'Error sorting Strategy sheet: ' + String(err && err.message ? err.message : err);
-    Logger.log(errorMsg);
-    return 'ERROR: ' + errorMsg;
-  }
-}
+    <div class="wrap">
 
-function sortStrategyAndRefresh() {
-  var result = sortStrategyByDepartment();
-  Logger.log('Sort result: ' + result);
-  try {
-    var testResult = doGet({ parameter: {} });
-    Logger.log('JSON endpoint refreshed.');
-  } catch (e) {
-    Logger.log('Could not refresh JSON endpoint: ' + e);
-  }
-  return result;
-}
+        <!-- ─── top controls: Your Name + status + refresh ─── -->
+        <div class="top-controls">
+            <div class="name-field">
+                <label for="yourName">Your name (saved locally)</label>
+                <input id="yourName" type="text" placeholder="e.g. John Doe" autocomplete="name" />
+            </div>
+            <span class="status-badge" id="statusBadge">Loading…</span>
+            <button class="refresh-btn" id="refreshBtn">⟳ Refresh</button>
+        </div>
 
-function onOpen() {
-  var ui = SpreadsheetApp.getUi();
-  ui.createMenu('MANCOM Tools')
-    .addItem('Sort Strategy by Department', 'sortStrategyByDepartment')
-    .addSeparator()
-    .addItem('Sort & Refresh JSON', 'sortStrategyAndRefresh')
-    .addToUi();
-}
+        <!-- ─── lookup ─── -->
+        <div class="lookup">
+            <div class="lookup-card">
+                <div class="lookup-label">Find your assignment</div>
+                <select id="picker">
+                    <option value="">— Select your name —</option>
+                </select>
+
+                <div id="result">
+                    <div class="person-row">
+                        <h2 id="r-name"></h2>
+                        <span class="sn" id="r-sn"></span>
+                    </div>
+                    <div class="field">
+                        <div class="k">Areas in Nigeria</div>
+                        <div class="v" id="r-areas"></div>
+                    </div>
+                    <div class="field" id="r-t1-field">
+                        <div class="k">Tier 1</div>
+                        <div class="v chips" id="r-t1"></div>
+                    </div>
+                    <div class="field" id="r-t2-field">
+                        <div class="k">Tier 2 &nbsp;<span style="font-weight:400;color:var(--sub);">(number of branches)</span></div>
+                        <div class="v chips" id="r-t2"></div>
+                    </div>
+                    <div class="field">
+                        <div class="k">Message leader</div>
+                        <div class="detail-wa" id="r-wa"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── full roster ─── -->
+        <div class="divider"><span>FULL ROSTER</span><div class="rule"></div></div>
+        <div class="filter-row">
+            <input id="filter" type="text" placeholder="Search a name, area, or country…" />
+        </div>
+        <div id="tableWrap">
+            <table>
+                <caption id="tableCaption">Loading leaders from the Contacts sheet…</caption>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Name</th>
+                        <th>Areas in Nigeria</th>
+                        <th>Tier 1</th>
+                        <th>Tier 2</th>
+                        <th>WhatsApp</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody"></tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <script>
+        /* ================================================================
+               MANCOM Directory — Live from Google Sheets + WhatsApp messaging
+               ================================================================ */
+
+        (function() {
+            'use strict';
+
+            // ─── CONFIG ──────────────────────────────────────────────────────
+            var CONFIG = {
+                // Same /exec URL used by the other MANCOM pages
+                API_URL: 'https://script.google.com/macros/s/AKfycbytS8yzg1hRdGi5YhXLe0DKGi7SJlfOFjE_tETmAN6wq6d2b29yqd4eb1FZomli1dIgew/exec',
+                REFRESH_MINUTES: 5,
+
+                // Column order in the Google Sheet "Contacts" tab.
+                // If you reorder columns, change these indices (0‑based).
+                CONTACTS_COLS: {
+                    name: 0,
+                    role: 1,
+                    nigeriaArea: 2,
+                    internationalCountry: 3,
+                    whatsapp: 4
+                }
+            };
+
+            // ─── DOM refs ──────────────────────────────────────────────────
+            var picker = document.getElementById('picker');
+            var result = document.getElementById('result');
+            var rName = document.getElementById('r-name');
+            var rSn = document.getElementById('r-sn');
+            var rAreas = document.getElementById('r-areas');
+            var rT1 = document.getElementById('r-t1');
+            var rT2 = document.getElementById('r-t2');
+            var rWa = document.getElementById('r-wa');
+            var tbody = document.getElementById('tbody');
+            var filterInput = document.getElementById('filter');
+            var statusBadge = document.getElementById('statusBadge');
+            var refreshBtn = document.getElementById('refreshBtn');
+            var yourNameInput = document.getElementById('yourName');
+            var tableCaption = document.getElementById('tableCaption');
+
+            // ─── state ──────────────────────────────────────────────────────
+            var DATA = []; // array of person objects
+            var DATA_BY_NAME = {}; // lookup by normalized name
+
+            // ─── helpers ──────────────────────────────────────────────────
+            function esc(s) {
+                return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            }
+
+            function norm(s) {
+                return String(s || '').toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+            }
+
+            function parseCountryWithCount(raw) {
+                // e.g. "Equitoria Guinea (1)" → { name: "Equitoria Guinea", count: 1 }
+                var s = String(raw || '').trim();
+                var m = /^(.+?)\s*\((\d+)\)$/.exec(s);
+                if (m) return { name: m[1].trim(), count: parseInt(m[2], 10) };
+                return { name: s, count: null };
+            }
+
+            function formatTier2(list) {
+                return list.map(function(item) {
+                    if (typeof item === 'string') {
+                        var p = parseCountryWithCount(item);
+                        return p.count !== null ? p.name + ' (' + p.count + ')' : p.name;
+                    }
+                    return String(item);
+                });
+            }
+
+            // ─── WhatsApp URL builder ──────────────────────────────────────
+            function buildWhatsAppUrl(phone, message) {
+                // phone: raw string, e.g. "+2348012345678" or "08012345678"
+                var cleaned = String(phone || '').replace(/[^0-9+]/g, '');
+                if (!cleaned) return null;
+                // Ensure it starts with a '+' for international format
+                if (!/^\+/.test(cleaned)) {
+                    // If it starts with 0, assume Nigeria and add +234
+                    if (/^0/.test(cleaned)) {
+                        cleaned = '+234' + cleaned.slice(1);
+                    } else {
+                        cleaned = '+' + cleaned;
+                    }
+                }
+                var url = 'https://wa.me/' + encodeURIComponent(cleaned);
+                if (message) {
+                    url += '?text=' + encodeURIComponent(message);
+                }
+                return url;
+            }
+
+            function makeMessage(leaderName, areaOrCountry, senderName) {
+                var s = senderName || 'a MANCOM member';
+                return 'Hello ' + leaderName + ', my name is ' + s +
+                    '. I am reaching out to check on how everything is progressing with ' +
+                    areaOrCountry + '.';
+            }
+
+            // ─── render WhatsApp buttons ──────────────────────────────────
+            function renderWaButtons(person, senderName) {
+                var html = '';
+                var phone = person.whatsapp || '';
+
+                // Nigeria button
+                var area = person.nigeriaArea || '';
+                if (area && phone) {
+                    var msg = makeMessage(person.name, area, senderName);
+                    var url = buildWhatsAppUrl(phone, msg);
+                    if (url) {
+                        html += '<a class="wa-btn" href="' + url + '" target="_blank" rel="noopener">' +
+                            '<svg viewBox="0 0 24 24"><path d="M12.032 21.965a9.96 9.96 0 0 1-5.08-1.397l-.278-.165-3.678.965 1.016-3.497-.177-.288A9.96 9.96 0 0 1 2.016 12.03C2.016 6.471 6.477 2 12.032 2s10.016 4.471 10.016 10.03-4.48 10.03-10.016 10.03zm0-18.95a8.92 8.92 0 0 0-8.916 8.92c0 1.642.446 3.245 1.29 4.642l.086.146-.688 2.476 2.569-.671.148.088a8.91 8.91 0 0 0 4.514 1.239 8.92 8.92 0 0 0 8.917-8.92 8.92 8.92 0 0 0-8.92-8.92zm4.887 11.124c-.135-.068-1.033-.509-1.193-.567-.16-.059-.277-.088-.394.088-.117.176-.454.567-.556.683-.102.117-.204.132-.377.064-.174-.068-.736-.271-1.404-.866-.514-.455-.861-1.016-.962-1.188-.102-.172-.01-.265.076-.35.077-.076.172-.198.258-.297.086-.099.115-.17.172-.282.058-.113.029-.212-.015-.297-.044-.085-.394-.95-.54-1.3-.142-.341-.286-.286-.394-.291h-.339c-.117 0-.306.044-.467.219s-.612.598-.612 1.459c0 .861.627 1.693.715 1.81.088.117 1.235 1.885 2.993 2.544.418.157.745.25 1.002.32.421.134.804.115 1.107.07.338-.05 1.033-.422 1.179-.83.146-.409.146-.759.102-.832-.044-.073-.164-.117-.299-.185z"/></svg>' +
+                            'Nigeria: ' + esc(area) +
+                            '</a>';
+                    }
+                }
+
+                // International button
+                var country = person.internationalCountry || '';
+                if (country && phone) {
+                    var msg2 = makeMessage(person.name, country, senderName);
+                    var url2 = buildWhatsAppUrl(phone, msg2);
+                    if (url2) {
+                        html += '<a class="wa-btn secondary" href="' + url2 + '" target="_blank" rel="noopener">' +
+                            '<svg viewBox="0 0 24 24"><path d="M12.032 21.965a9.96 9.96 0 0 1-5.08-1.397l-.278-.165-3.678.965 1.016-3.497-.177-.288A9.96 9.96 0 0 1 2.016 12.03C2.016 6.471 6.477 2 12.032 2s10.016 4.471 10.016 10.03-4.48 10.03-10.016 10.03zm0-18.95a8.92 8.92 0 0 0-8.916 8.92c0 1.642.446 3.245 1.29 4.642l.086.146-.688 2.476 2.569-.671.148.088a8.91 8.91 0 0 0 4.514 1.239 8.92 8.92 0 0 0 8.917-8.92 8.92 8.92 0 0 0-8.92-8.92zm4.887 11.124c-.135-.068-1.033-.509-1.193-.567-.16-.059-.277-.088-.394.088-.117.176-.454.567-.556.683-.102.117-.204.132-.377.064-.174-.068-.736-.271-1.404-.866-.514-.455-.861-1.016-.962-1.188-.102-.172-.01-.265.076-.35.077-.076.172-.198.258-.297.086-.099.115-.17.172-.282.058-.113.029-.212-.015-.297-.044-.085-.394-.95-.54-1.3-.142-.341-.286-.286-.394-.291h-.339c-.117 0-.306.044-.467.219s-.612.598-.612 1.459c0 .861.627 1.693.715 1.81.088.117 1.235 1.885 2.993 2.544.418.157.745.25 1.002.32.421.134.804.115 1.107.07.338-.05 1.033-.422 1.179-.83.146-.409.146-.759.102-.832-.044-.073-.164-.117-.299-.185z"/></svg>' +
+                            'International: ' + esc(country) +
+                            '</a>';
+                    }
+                }
+
+                if (!html) {
+                    html = '<span class="empty-note">No WhatsApp number or area/country assigned</span>';
+                }
+                return html;
+            }
+
+            // ─── build data from sheet rows ──────────────────────────────
+            function buildDataFromSheet(rows) {
+                if (!rows || !rows.length) return [];
+                var result = [];
+                var cols = CONFIG.CONTACTS_COLS;
+                // Skip header row if the first cell looks like a header
+                var startIdx = 0;
+                var first = rows[0] || [];
+                var firstVal = String(first[cols.name] || '').toLowerCase();
+                if (firstVal === 'name' || firstVal === 'full name' || firstVal === 'leader name') {
+                    startIdx = 1;
+                }
+
+                for (var r = startIdx; r < rows.length; r++) {
+                    var row = rows[r] || [];
+                    var name = String(row[cols.name] || '').trim();
+                    if (!name) continue;
+                    var nigeria = String(row[cols.nigeriaArea] || '').trim();
+                    var country = String(row[cols.internationalCountry] || '').trim();
+                    var phone = String(row[cols.whatsapp] || '').trim();
+                    var role = String(row[cols.role] || '').trim();
+
+                    // Split comma-separated values for areas and countries
+                    var areas = nigeria ? nigeria.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
+                    var countries = country ? country.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
+
+                    // t1 = Tier 1 (first country if multiple), t2 = rest
+                    var t1 = [];
+                    var t2 = [];
+                    if (countries.length) {
+                        t1.push(countries[0]);
+                        for (var i = 1; i < countries.length; i++) {
+                            t2.push(countries[i]);
+                        }
+                    }
+
+                    result.push({
+                        name: name,
+                        role: role,
+                        nigeriaArea: areas.join(', '),
+                        nigeriaAreas: areas,
+                        internationalCountry: countries.join(', '),
+                        internationalCountries: countries,
+                        t1: t1,
+                        t2: t2,
+                        whatsapp: phone,
+                        // For backward compatibility with existing directory.html rendering
+                        areas: areas.join(', '),
+                        t1Array: t1,
+                        t2Array: t2.map(function(c) { return c; })
+                    });
+                }
+                return result;
+            }
+
+            // ─── render the whole UI ──────────────────────────────────────
+            function render(data, senderName) {
+                DATA = data;
+                DATA_BY_NAME = {};
+                data.forEach(function(p, i) {
+                    var key = norm(p.name);
+                    DATA_BY_NAME[key] = { index: i, person: p };
+                });
+
+                // ── populate picker ──
+                picker.innerHTML = '<option value="">— Select your name —</option>';
+                data.forEach(function(p, i) {
+                    var opt = document.createElement('option');
+                    opt.value = i;
+                    opt.textContent = p.name + (p.role ? ' · ' + p.role : '');
+                    picker.appendChild(opt);
+                });
+
+                // ── table ──
+                var tbodyHtml = '';
+                data.forEach(function(p, i) {
+                    var searchStr = (p.name + ' ' + p.areas + ' ' + p.t1.join(' ') + ' ' + p.t2.join(' ') + ' ' + p
+                        .internationalCountry).toLowerCase();
+                    var waHtml = renderWaButtons(p, senderName);
+                    tbodyHtml += '<tr data-search="' + esc(searchStr) + '">' +
+                        '<td>' + (i + 1) + '</td>' +
+                        '<td class="name">' + esc(p.name) + (p.role ? ' <span style="font-weight:400;color:var(--sub);font-size:11px;">' +
+                            esc(p.role) + '</span>' : '') + '</td>' +
+                        '<td class="areas">' + esc(p.areas || '—') + '</td>' +
+                        '<td>' + (p.t1.length ? p.t1.map(function(c) { return '<span class="chip t1">' + esc(c) +
+                                '</span>'; }).join('') : '—') + '</td>' +
+                        '<td>' + (p.t2.length ? p.t2.map(function(c) { return '<span class="chip t2">' + esc(c) +
+                                '</span>'; }).join('') : '—') + '</td>' +
+                        '<td><div class="wa-cell">' + waHtml + '</div></td>' +
+                        '</tr>';
+                });
+                tbody.innerHTML = tbodyHtml;
+                tableCaption.textContent = data.length + ' leaders · Nigeria zones, Tier 1 and Tier 2 country assignments';
+
+                // ── filter ──
+                var q = filterInput.value.trim().toLowerCase();
+                Array.prototype.forEach.call(tbody.children, function(tr) {
+                    tr.classList.toggle('hide', q && tr.dataset.search.indexOf(q) === -1);
+                });
+
+                // ── status ──
+                setStatus('✅ ' + data.length + ' leaders loaded', 'live');
+            }
+
+            // ─── lookup detail ────────────────────────────────────────────
+            picker.addEventListener('change', function() {
+                var idx = parseInt(picker.value, 10);
+                if (isNaN(idx) || idx < 0 || idx >= DATA.length) {
+                    result.classList.remove('show');
+                    return;
+                }
+                var p = DATA[idx];
+                var sender = yourNameInput.value.trim() || 'a MANCOM member';
+
+                rName.textContent = p.name;
+                rSn.textContent = '№ ' + (idx + 1);
+                rAreas.textContent = p.areas || '—';
+                rT1.innerHTML = p.t1.length ? p.t1.map(function(c) { return '<span class="chip t1">' + esc(c) +
+                    '</span>'; }).join('') : '<span class="empty-note">None assigned</span>';
+                rT2.innerHTML = p.t2.length ? p.t2.map(function(c) { return '<span class="chip t2">' + esc(c) +
+                    '</span>'; }).join('') : '<span class="empty-note">None assigned</span>';
+                rWa.innerHTML = renderWaButtons(p, sender);
+
+                result.classList.add('show');
+            });
+
+            // ─── filter ────────────────────────────────────────────────────
+            filterInput.addEventListener('input', function() {
+                var q = this.value.trim().toLowerCase();
+                Array.prototype.forEach.call(tbody.children, function(tr) {
+                    tr.classList.toggle('hide', q && tr.dataset.search.indexOf(q) === -1);
+                });
+            });
+
+            // ─── Your Name: localStorage ──────────────────────────────────
+            var STORAGE_KEY = 'mancom_directory_sender_name';
+            yourNameInput.value = localStorage.getItem(STORAGE_KEY) || '';
+            yourNameInput.addEventListener('input', function() {
+                var val = this.value.trim();
+                localStorage.setItem(STORAGE_KEY, val);
+                // Refresh WhatsApp buttons in the detail view if open
+                var idx = parseInt(picker.value, 10);
+                if (!isNaN(idx) && idx >= 0 && idx < DATA.length) {
+                    var p = DATA[idx];
+                    rWa.innerHTML = renderWaButtons(p, val || 'a MANCOM member');
+                }
+                // Also refresh table WhatsApp buttons
+                var sender = val || 'a MANCOM member';
+                var rows = tbody.querySelectorAll('tr');
+                DATA.forEach(function(p, i) {
+                    if (i < rows.length) {
+                        var cell = rows[i].querySelector('td:last-child .wa-cell');
+                        if (cell) {
+                            cell.innerHTML = renderWaButtons(p, sender);
+                        }
+                    }
+                });
+            });
+
+            // ─── status helper ────────────────────────────────────────────
+            function setStatus(msg, cls) {
+                statusBadge.textContent = msg;
+                statusBadge.className = 'status-badge' + (cls ? ' ' + cls : '');
+            }
+
+            // ─── live fetch (same pattern as other MANCOM pages) ──────────
+            function jsonp(url, cb, errCb) {
+                var name = 'dirCB' + Date.now();
+                var s = document.createElement('script');
+                var timer = setTimeout(function() { cleanup();
+                    errCb(new Error('Request timed out')); }, 20000);
+
+                function cleanup() {
+                    clearTimeout(timer);
+                    try { delete window[name]; } catch (e) { window[name] = undefined; }
+                    if (s.parentNode) s.parentNode.removeChild(s);
+                }
+                window[name] = function(data) { cleanup();
+                    cb(data); };
+                s.onerror = function() { cleanup();
+                    errCb(new Error('Could not reach the Google Sheet service')); };
+                s.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'callback=' + name + '&t=' + Date.now();
+                document.body.appendChild(s);
+            }
+
+            function fetchLive(cb, errCb) {
+                var url = CONFIG.API_URL;
+                if (!url || url.indexOf('PASTE_') === 0) {
+                    errCb(new Error('No API_URL configured'));
+                    return;
+                }
+                if (typeof fetch === 'function') {
+                    fetch(url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now())
+                        .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                        .then(cb)
+                        .catch(function() { jsonp(url, cb, errCb); });
+                } else {
+                    jsonp(url, cb, errCb);
+                }
+            }
+
+            // ─── load ──────────────────────────────────────────────────────
+            function loadData(silent) {
+                if (!silent) setStatus('Fetching live Contacts sheet…', '');
+                fetchLive(function(res) {
+                    try {
+                        if (!res || res.ok === false) throw new Error(res && res.error ? res.error :
+                            'Bad response');
+                        // The Apps Script returns all sheets. We expect a "contacts" property.
+                        var rows = res.contacts || [];
+                        if (!rows || !rows.length) {
+                            setStatus('⚠ No data found in the "Contacts" tab', 'error');
+                            tableCaption.textContent = 'No data in Contacts tab — add leaders!';
+                            return;
+                        }
+                        var data = buildDataFromSheet(rows);
+                        if (!data.length) {
+                            setStatus('⚠ No valid rows found in Contacts tab', 'error');
+                            tableCaption.textContent = 'No valid rows in Contacts tab';
+                            return;
+                        }
+                        var sender = yourNameInput.value.trim() || 'a MANCOM member';
+                        render(data, sender);
+                    } catch (e) {
+                        setStatus('⚠ ' + e.message, 'error');
+                    }
+                }, function(err) {
+                    setStatus('⚠ Live sheet unavailable (' + err.message + ')', 'error');
+                });
+            }
+
+            // ─── refresh button ───────────────────────────────────────────
+            refreshBtn.onclick = function() { loadData(false); };
+
+            // ─── auto-refresh ─────────────────────────────────────────────
+            if (CONFIG.REFRESH_MINUTES > 0) {
+                setInterval(function() { loadData(true); }, CONFIG.REFRESH_MINUTES * 60000);
+            }
+
+            // ─── initial load ─────────────────────────────────────────────
+            loadData(false);
+
+        })();
+    </script>
+</body>
+</html>
